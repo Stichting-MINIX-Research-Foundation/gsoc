@@ -1,0 +1,59 @@
+Follow these steps in order to install the llvm headers, and to obtain the values for the CXXFLAGS and LDFLAGS variables in Makefile.inc:
+
+1. Install pkgsrc (see wiki):
+	# cd /usr/pkgsrc/minix/clang29
+
+2. Obtain the source tree from  the repository, and patch and configure:
+	# bmake fetch checksum extract patch tools wrapper configure
+
+3. Install the llvm headers from the source tree:
+	# mv /usr/pkg/include/llvm /usr/pkg/include/llvm.orig
+	# cp -rp /usr/pkgsrc/work/minix/clang29/work/llvm/include/llvm /usr/pkg/include/
+
+4. Print out the commands that would be executed by a build of the Hello pass:
+
+	# cd /usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello/
+	# gmake -n
+
+5.	From the output, extract the two g++ commands. The first is for compiling, and the second is for linking:
+
+		g++ -I/usr/pkgsrc/work/minix/clang29/work/llvm/include -I/usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello  -DNDEBUG -D_POSIX_SOURCE -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual    -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -c -MMD -MP -MF "/usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello/Release/Hello.d.tmp" -MT "/usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello/Release/Hello.o" -MT "/usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello/Release/Hello.d" Hello.cpp -o /usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello/Release/Hello.o
+
+		g++ -I/usr/pkgsrc/work/minix/clang29/work/llvm/include -I/usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello  -DNDEBUG -D_POSIX_SOURCE -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual  -lcompat_minix -lminlib -L/usr/pkg/gcc44/lib/gcc/i386-pc-minix/4.4.6 -Wl,-R/usr/pkg/gcc44/lib/gcc/i386-pc-minix/4.4.6 -L/usr/pkg/gcc44/lib -Wl,-R/usr/pkg/gcc44/lib -L/usr/lib -Wl,-R/usr/lib -L/usr/pkg/gcc44/lib/gcc/i386-pc-minix/4.4.6/ -Wl,-R/usr/pkg/gcc44/lib/gcc/i386-pc-minix/4.4.6/ -Wl,-R/usr/pkg/lib   -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -O3 -Wl,-R -Wl,'$ORIGIN' -L/usr/pkgsrc/work/minix/clang29/work/llvm/Release/lib -L/usr/pkgsrc/work/minix/clang29/work/llvm/Release/lib   -shared -o /usr/pkgsrc/work/minix/clang29/work/llvm/Release/lib/LLVMHello.so /usr/pkgsrc/work/minix/clang29/work/llvm/lib/Transforms/Hello/Release/Hello.o \
+	    -lm
+
+6.	We change those commands as follows:
+
+		- in the compile command
+			- remove 'g++'
+			- remove these flags:
+				-D_POSIX_SOURCE
+				-MMD
+				-MP
+				-MT [file]
+				-MF [file]
+				-I[path]
+				-o [file]
+				-c
+			- remove the .cpp file
+			- add this flag: -I/usr/pkg/include	
+
+		- in the link command
+			-remove 'g++'
+			- remove the flags:
+				-L...
+				-Wl,-R...
+				-Wl,'$ORIGIN
+				-I[path]
+				-o [file]
+			- remove the .o file
+
+The modified compile command becomes the value of CXXFLAGS.
+The modified link command the value of LDFLAGS becomes.
+
+This is the result. The first line is the CFLAGS variable, and the second line is the LDFLAGS variable:
+
+CXXFLAGS :=-I/usr/pkg/include  -DNDEBUG -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual    -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings
+
+LDFLAGS :=-DNDEBUG -D_POSIX_SOURCE -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual  -lcompat_minix -lminlib -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -O3 -shared -lm
+
