@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/pkg/bin/python2.7
 # -*- coding: iso-8859-1 -*-
 '''
 $PROGRAM
@@ -48,7 +48,7 @@ VERBOSE_LEVELS = {
 } 
 
 DEFAULT = {
-    'COMPILER' :            'llvm-gcc',
+    'COMPILER' :            'clang',
     'OUTPUT_FILE' :         'a.out',
     'VERBOSE_LEVEL' :       'warning',
     'RM' :                  'rm',
@@ -73,7 +73,7 @@ DEFAULT = {
     'STD_COMPILER_OPTIONS' :  [ '-v', '-S' ],
     'STD_LINKER_OPTIONS' :  [ '-v', '-nostartfiles', '-nodefaultlibs', '-nostdlib', '-pie', '-rdynamic', '-s', '-static', '-shared', '-shared-libgcc', '-static-libgcc', '-static-libstdc++', '-symbolic', '-export-dynamic' ],
     'STD_LLLD_OPTIONS' :    [ '-v', '-stats', '-time-passes', '-link-as-library',  '-r',  '-native',  '-native-cbe',  '-disable-inlining',  '-disable-opt',  '-disable-internalize',  '-verify-each',  '-strip-all',  '-strip-debug',  '-s',  '-S',  '-export-dynamic' ],
-    'STD_DEEP_LINKER_OPTIONS' :  [ '-soname' ],
+    'STD_DEEP_LINKER_OPTIONS' :  [ '-soname' , '--section-start'],
     'OPT_AGGR_PASSES' :     [ '-std-compile-opts', '-std-link-opts', '-O1', '-O2', '-O3', '-disable-inlining', '-disable-opt' ]
 }
 
@@ -1076,7 +1076,7 @@ class Compiler:
         myInputFiles = self.nextInputFiles
         myOutputFile = self.outputFile
         self.nextInputFiles = [myOutputFile]
-        assemblerOptions = [ '-D__ASSEMBLY__' ]
+        assemblerOptions = []
         assemblerOptions.extend(CONF['ASSEMBLER_OPTIONS'])
         assemblerOptions.append('-c')
         args = self.argsUtil.getGenericToolArgs(CONF['ASSEMBLER'], myInputFiles, myOutputFile, assemblerOptions)
@@ -1257,7 +1257,7 @@ class Linker:
         myOutputFile = self.argsUtil.changeExtToFile(self.outputFile, CONF['LAS_OUT_EXT'])
         self.intermediateFiles.append(myOutputFile)
         self.nextInputFiles = [myOutputFile]
-        assemblerOptions = [ '-D__ASSEMBLY__' ]
+        assemblerOptions = []
         assemblerOptions.extend(CONF['ASSEMBLER_OPTIONS'])
         assemblerOptions.append('-c')
         args = self.argsUtil.getGenericToolArgs(CONF['ASSEMBLER'], myInputFiles, myOutputFile, assemblerOptions)
@@ -1276,7 +1276,7 @@ class Linker:
             if wasStdDeepLinkerOptWithArg:
                 wasStdDeepLinkerOptWithArg = 0
                 linkerOptions.append('-Wl,' + o)
-            elif o in CONF['STD_DEEP_LINKER_OPTIONS']:
+            elif o.split("=")[0] in CONF['STD_DEEP_LINKER_OPTIONS']:
                 linkerOptions.append('-Wl,' + o)
                 wasStdDeepLinkerOptWithArg = 1
             else:
