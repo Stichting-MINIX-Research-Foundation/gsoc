@@ -197,6 +197,9 @@ SRCS:=${SRCS} n_sqrt.S n_argred.S n_infnan.S n_atan2.S n_cabs.S n_cbrt.S \
 COPTS.s_tanh.c+= -O0
 .endif
 
+#needed for compiling with llvmdrv, because the SRCS aren't set right
+BCC_OBJS ?= `ls *.bcc | sort` 
+
 MAN+=	acos.3 acosh.3 asin.3 asinh.3 atan.3 atan2.3 atanh.3 ceil.3 \
 	cos.3 cosh.3 erf.3 exp.3 fabs.3 floor.3 fmod.3 frexp.3 hypot.3 ieee.3 \
 	ieee_test.3 isinff.3 j0.3 ldexp.3 lgamma.3 lrint.3 \

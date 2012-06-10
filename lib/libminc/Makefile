@@ -139,4 +139,7 @@ CPPFLAGS.${i}+= -I${LIBCSRCDIR}/include
 
 CPPFLAGS+= -D_LIBSYS
 
+#needed for compiling with llvmdrv, because the SRCS aren't set right
+BCC_OBJS ?= `ls *.bcc | sort` 
+
 .include <bsd.lib.mk>
