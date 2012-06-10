@@ -8,3 +8,4 @@ LDADD+= -nodefaultlibs -L/usr/pkg/compiler-rt/lib -lCompilerRT-Generic -lsys -lC
 .endif
 
 .include <bsd.prog.mk>
+.include <minix.llvm.mk>

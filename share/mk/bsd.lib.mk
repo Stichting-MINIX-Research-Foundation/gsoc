@@ -1,6 +1,7 @@
 #	$NetBSD: bsd.lib.mk,v 1.299 2009/11/27 11:44:36 tsutsui Exp $
 #	@(#)bsd.lib.mk	8.3 (Berkeley) 4/22/94
 
+.include <minix.llvm.mk>
 .include <bsd.init.mk>
 .include <bsd.shlib.mk>
 #.include <bsd.gcc.mk>
@@ -760,3 +761,4 @@ LINKSMODE?= ${LIBMODE}
 .include <minix.gcc.mk>
 
 ${TARGETS}:	# ensure existence
+
