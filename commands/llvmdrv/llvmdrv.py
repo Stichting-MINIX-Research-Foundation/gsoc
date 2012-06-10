@@ -73,7 +73,7 @@ DEFAULT = {
     'STD_COMPILER_OPTIONS' :  [ '-v', '-S' ],
     'STD_LINKER_OPTIONS' :  [ '-v', '-nostartfiles', '-nodefaultlibs', '-nostdlib', '-pie', '-rdynamic', '-s', '-static', '-shared', '-shared-libgcc', '-static-libgcc', '-static-libstdc++', '-symbolic', '-export-dynamic' ],
     'STD_LLLD_OPTIONS' :    [ '-v', '-stats', '-time-passes', '-link-as-library',  '-r',  '-native',  '-native-cbe',  '-disable-inlining',  '-disable-opt',  '-disable-internalize',  '-verify-each',  '-strip-all',  '-strip-debug',  '-s',  '-S',  '-export-dynamic' ],
-    'STD_DEEP_LINKER_OPTIONS' :  [ '-soname' , '--section-start'],
+    'STD_DEEP_LINKER_OPTIONS' :  [ '-soname' , '--section-start', '--whole-archive', '--no-whole-archive', '--warn-shared-textrel', '-x' ],
     'OPT_AGGR_PASSES' :     [ '-std-compile-opts', '-std-link-opts', '-O1', '-O2', '-O3', '-disable-inlining', '-disable-opt' ]
 }
 
@@ -476,8 +476,8 @@ class CLManager:
                 "Wllld,", "Wo,", "Woc,", "Wol,", "assembler=",
                 "c", "compiler=", "disable-pass=", "disable-cpass=", "disable-lpass=", "dry-run", "emit-llvm",
                 "fsyntax-only", "help", "uselinker=", "o $", "opt",
-                "save-lls", "save-temps", "verbose-level=", "version"],
-                [".a"])
+                "save-lls", "save-temps", "verbose-level=", "version", "-param $"],
+                [])
             
         except ValueError, err:
             ecode = EnvUtil.error('ECLPARSE', str(err))
@@ -489,7 +489,10 @@ class CLManager:
         
         #process options
         for o, a in opts:
-            if o == '-E':
+            if o == '--param':
+                CONF['COMPILER_OPTIONS'].append(o)
+                CONF['COMPILER_OPTIONS'].append(a)
+            elif o == '-E':
                 CONF['IS_PREPROCESS_ONLY'] = 1
             elif o == '-I':
                 CONF['INCLUDE_DIRS'].append(a)
@@ -645,7 +648,7 @@ class CLManager:
                 else:
                     name += sep
                     if sep == ',':
-                        nameArg = nameTokens[1].split(sep)
+                        nameArg = [nameTokens[1]]
                     else:
                         nameArg = nameTokens[1]
                 #see if the option is valid
@@ -668,11 +671,13 @@ class CLManager:
                     continue
                 parsedUnknownOpts.append(a)
             else:
+                suffixFound = False
                 for s in specialOptSuffixes:
                     if a.endswith(s):
                         parsedUnknownOpts.append(a)
-                    else:
-                        parsedArgs.append(a)
+                        suffixFound = True
+                if not suffixFound:
+                    parsedArgs.append(a)
         if pendingOptName is not None:
             raise Exception('Missing argument for option: ' + pendingOptName)
 
@@ -1077,7 +1082,7 @@ class Compiler:
         myOutputFile = self.outputFile
         self.nextInputFiles = [myOutputFile]
         assemblerOptions = []
-        assemblerOptions.extend(CONF['ASSEMBLER_OPTIONS'])
+        assemblerOptions.extend(CONF['COMPILER_OPTIONS'] if self.isAsmInputFile else CONF['ASSEMBLER_OPTIONS'])
         assemblerOptions.append('-c')
         args = self.argsUtil.getGenericToolArgs(CONF['ASSEMBLER'], myInputFiles, myOutputFile, assemblerOptions)
         return [args[0]] + self.argsUtil.getIncludeDirArgs(CONF['INCLUDE_DIRS']) + args[1:]
