@@ -6,7 +6,7 @@
 LLVM_DEBUG_FLAG= -verbose-level=${LLVM_DEBUG}
 .endif
 
-CC= llvmdrv ${LLVM_DEBUG_FLAG} 
+CC= llvmdrv ${LLVM_DEBUG_FLAG} -save-temps
 CXX=${CC}
 
 .if defined(LIB)
@@ -50,6 +50,9 @@ clean:
 .if "${LLVM_CONF}" == "TEST"
 CFLAGS+= -disable-pass=-codegenprepare -Wo-start -load=libLLVMHello.so -hello -Wo-end 
 LDFLAGS+= -Wo-start -load=libLLVMHello.so -hello -Wo-end -Wllld,-L/usr/lib/bca
+.elif "${LLVM_CONF}" == "FAULT"
+CFLAGS+= -disable-pass=-codegenprepare -Wo-start -load=libLLVMFaultInjector.so -faultinjector -Wo-end 
+LDFLAGS+= -Wllld,-L/usr/lib/bca
 .endif
 
 .endif
