@@ -1,4 +1,5 @@
 #	$NetBSD: Makefile,v 1.35 2011/06/22 02:49:44 mrg Exp $
+LLVM_CONF:=
 
 S?=	${.CURDIR}/../../../..
 

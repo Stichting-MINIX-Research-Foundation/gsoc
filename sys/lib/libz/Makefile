@@ -1,5 +1,6 @@
 #	$NetBSD: Makefile,v 1.18 2011/10/30 00:28:57 mrg Exp $
 
+LLVM_CONF:=
 LIB=	z
 LIBISPRIVATE=	yes
 

@@ -1,5 +1,6 @@
 #	$NetBSD: Makefile,v 1.76 2011/12/25 06:09:08 tsutsui Exp $
 
+LLVM_CONF:=
 LIB=	sa
 NOPIC=	# defined
 NOPROFILE=# defined
