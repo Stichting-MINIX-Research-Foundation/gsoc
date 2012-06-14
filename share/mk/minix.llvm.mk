@@ -6,12 +6,24 @@
 LLVM_DEBUG_FLAG= -verbose-level=${LLVM_DEBUG}
 .endif
 
-CC= llvmdrv ${LLVM_DEBUG_FLAG} -save-temps
-CXX=${CC}
+LLVM.CC= llvmdrv ${LLVM_DEBUG_FLAG} -save-temps
+LLVM.CXXCXX=${LLVM.CC}
+
+.if "${LLVM_CONF}" == "TEST"
+LLVM.CFLAGS=	-disable-pass=-codegenprepare -Wo-start -load=libLLVMHello.so -hello -Wo-end 
+LLVM.LDFLAGS=	-Wo-start -load=libLLVMHello.so -hello -Wo-end -Wllld,-L/usr/lib/bca
+.elif "${LLVM_CONF}" == "FAULT"
+LLVM.CFLAGS=	-disable-pass=-codegenprepare -Wo-start -load=libLLVMFaultInjector.so -faultinjector -Wo-end 
+LLVM.LDFLAGS=	-Wllld,-L/usr/lib/bca
+.elif "${LLVM_CONF}" == "NONE"
+LLVM.CFLAGS=	-disable-pass=-codegenprepare
+LLVM.LDFLAGS=	-Wllld,-L/usr/lib/bca
+.endif
+
 
 .if defined(LIB)
 
-MKPIC:=		no
+COMPILE.c.o=${COMPILE.c:C/[[:<:]]${CC}[[:>:]]/${LLVM.CC}/g} ${LLVM.CFLAGS}
 
 LLAR= llvm-ar
 
@@ -26,11 +38,7 @@ lib${LIB}.a:: lib${LIB}.bca
 lib${LIB}.bca: ${OBJS}
 	# should depend on BCC_OBJS, but BCC_OBJS might be a shell command
 	# see for example lib/libm/Makefile
-	#echo BC_SRCS: ${BCC_SRCS}
-	#echo ALL_TARGETS: ${.ALLTARGETS:M*.S}
 	echo build ${.TARGET} 
-	echo BCC_SRCS: ${BCC_SRCS}
-	echo ${LLAR_CMD}
 	${LLAR_CMD}
 
 install: ${DESTDIR}${LIBDIR}/bca/lib${LIB}.bca
@@ -38,21 +46,20 @@ install: ${DESTDIR}${LIBDIR}/bca/lib${LIB}.bca
 ${DESTDIR}${LIBDIR}/bca/lib${LIB}.bca! lib${LIB}.bca __archiveinstall
 
 clean:
-	rm -f lib${LIB}.bca ${OBJS:.o=.bcc}
+	rm -f lib${LIB}.bca ${OBJS:.o=.bcc} ${OBJS:.o=.bccs.s} ${OBJS:.o=.BCC}
 
 .else
 
+CC=  ${LLVM.CC}
+CXX= ${LLVM.CXX}
+
+CFLAGS+=  ${LLVM.CFLAGS} 
+LDFLAGS+= ${LLVM.LDFLAGS}
+
 clean:
-	rm -f ${OBJS:.o=.bcc} ${PROG}.bcl ${PROG}.BCL ${PROG}.bcl.sh ${PROG}.BCL.sh ${PROG}.bcls.s
+	rm -f ${OBJS:.o=.bcc} ${OBJS:.o=.bccs.s} ${OBJS:.o=.BCC} ${PROG}.bcl ${PROG}.BCL ${PROG}.bcl.sh ${PROG}.BCL.sh ${PROG}.bcls.s
 
 .endif
 
-.if "${LLVM_CONF}" == "TEST"
-CFLAGS+= -disable-pass=-codegenprepare -Wo-start -load=libLLVMHello.so -hello -Wo-end 
-LDFLAGS+= -Wo-start -load=libLLVMHello.so -hello -Wo-end -Wllld,-L/usr/lib/bca
-.elif "${LLVM_CONF}" == "FAULT"
-CFLAGS+= -disable-pass=-codegenprepare -Wo-start -load=libLLVMFaultInjector.so -faultinjector -Wo-end 
-LDFLAGS+= -Wllld,-L/usr/lib/bca
-.endif
 
 .endif
