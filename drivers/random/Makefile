@@ -1,4 +1,5 @@
 # Makefile for random driver (RANDOM)
+LLVM_CONF=
 PROG=	random
 SRCS=	main.c random.c rijndael_api.c rijndael_alg.c
 

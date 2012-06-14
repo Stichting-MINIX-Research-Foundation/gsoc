@@ -1,4 +1,5 @@
 # Makefile for inet.
+LLVM_CONF=
 PROG=	inet
 SRCS=	buf.c clock.c inet.c inet_config.c \
 	mnx_eth.c mq.c qp.c sr.c \

@@ -1,4 +1,5 @@
 # The ACPI driver is compilable only with a "gnu" type compiler
+LLVM_CONF=
 PROG=	acpi
 
 SRCS= \

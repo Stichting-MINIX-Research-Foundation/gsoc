@@ -1,6 +1,7 @@
 # Makefile for VM server
 .include <bsd.own.mk>
 
+LLVM_CONF=
 PROG=	vm
 SRCS=	main.c alloc.c utility.c exec.c exit.c fork.c break.c \
 	signal.c mmap.c slaballoc.c region.c pagefaults.c addravl.c \
