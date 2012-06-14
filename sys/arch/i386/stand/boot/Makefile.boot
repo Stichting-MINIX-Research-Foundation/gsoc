@@ -1,5 +1,6 @@
 # $NetBSD: Makefile.boot,v 1.56 2011/12/25 06:09:09 tsutsui Exp $
 
+LLVM_CONF=
 S=	${.CURDIR}/../../../../..
 
 NOMAN=

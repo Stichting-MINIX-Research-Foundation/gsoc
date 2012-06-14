@@ -1,5 +1,6 @@
 # $NetBSD: Makefile.bootxx,v 1.42 2011/06/20 06:52:38 mrg Exp $
 
+LLVM_CONF=
 S=	${.CURDIR}/../../../../..
 
 ACTIVE_CC?= ${CC}
