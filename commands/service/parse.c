@@ -731,6 +731,7 @@ struct
 	{ "INFO",		VM_INFO },
 	{ "RS_UPDATE",		VM_RS_UPDATE },
 	{ "RS_MEMCTL",		VM_RS_MEMCTL },
+	{ "PROCCTL",		VM_PROCCTL },
 	{ NULL,			0 },
 };
 
@@ -818,6 +819,7 @@ struct
 	{ "READBIOS",		SYS_READBIOS },
 	{ "STIME",		SYS_STIME },
 	{ "VMCTL",		SYS_VMCTL },
+	{ "MEMSET",		SYS_MEMSET },
 	{ NULL,		0 }
 };
 

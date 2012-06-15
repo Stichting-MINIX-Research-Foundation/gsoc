@@ -9,8 +9,6 @@
 int vm_exit(endpoint_t ep);
 int vm_fork(endpoint_t ep, int slotno, endpoint_t *child_ep);
 int vm_brk(endpoint_t ep, char *newaddr);
-int vm_exec_newmem(endpoint_t ep, struct exec_newmem *args, int
-	args_bytes, char **ret_stack_top, int *ret_flags);
 int vm_push_sig(endpoint_t ep, vir_bytes *old_sp);
 int vm_willexit(endpoint_t ep);
 int vm_adddma(endpoint_t proc_e, phys_bytes start, phys_bytes size);
@@ -70,6 +68,7 @@ int vm_info_stats(struct vm_stats_info *vfi);
 int vm_info_usage(endpoint_t who, struct vm_usage_info *vui);
 int vm_info_region(endpoint_t who, struct vm_region_info *vri, int
 	count, vir_bytes *next);
+int vm_procctl(endpoint_t ep, int param);
 
 #endif /* _MINIX_VM_H */
 

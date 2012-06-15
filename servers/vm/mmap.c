@@ -42,9 +42,22 @@ int do_mmap(message *m)
 	int mfflags = 0;
 	vir_bytes addr;
 	struct vir_region *vr = NULL;
+	int execpriv = 0;
 
-	if((r=vm_isokendpt(m->m_source, &n)) != OK) {
-		panic("do_mmap: message from strange source: %d", m->m_source);
+	/* RS and VFS can do slightly more special mmap() things */
+	if(m->m_source == VFS_PROC_NR || m->m_source == RS_PROC_NR)
+		execpriv = 1;
+
+	if(m->VMM_FLAGS & MAP_THIRDPARTY) {
+		if(!execpriv) return EPERM;
+		if((r=vm_isokendpt(m->VMM_FORWHOM, &n)) != OK)
+			return ESRCH;
+	} else {
+		/* regular mmap, i.e. for caller */
+		if((r=vm_isokendpt(m->m_source, &n)) != OK) {
+			panic("do_mmap: message from strange source: %d",
+				m->m_source);
+		}
 	}
 
 	vmp = &vmproc[n];
@@ -69,6 +82,10 @@ int do_mmap(message *m)
 		if(m->VMM_FLAGS & MAP_LOWER16M) vrflags |= VR_LOWER16MB;
 		if(m->VMM_FLAGS & MAP_LOWER1M)  vrflags |= VR_LOWER1MB;
 		if(m->VMM_FLAGS & MAP_ALIGN64K) vrflags |= VR_PHYS64K;
+		if(m->VMM_FLAGS & MAP_UNINITIALIZED) {
+			if(!execpriv) return EPERM;
+			vrflags |= VR_UNINITIALIZED;
+		}
 		if(m->VMM_FLAGS & MAP_IPC_SHARED) {
 			vrflags |= VR_SHARED;
 			/* Shared memory has to be preallocated. */
@@ -83,7 +100,7 @@ int do_mmap(message *m)
 			len += VM_PAGE_SIZE - (len % VM_PAGE_SIZE);
 
 		vr = NULL;
-		if (m->VMM_ADDR) {
+		if (m->VMM_ADDR || (m->VMM_FLAGS & MAP_FIXED)) {
 			/* An address is given, first try at that address. */
 			addr = arch_vir2map(vmp, m->VMM_ADDR);
 			vr = map_page_region(vmp, addr, 0, len, MAP_NONE,

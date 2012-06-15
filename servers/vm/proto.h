@@ -52,6 +52,7 @@ int swap_proc_dyn_data(struct vmproc *src_vmp, struct vmproc *dst_vmp);
 void clear_proc(struct vmproc *vmp);
 int do_exit(message *msg);
 int do_willexit(message *msg);
+int do_procctl(message *msg);
 void free_proc(struct vmproc *vmp);
 
 /* fork.c */
@@ -64,6 +65,7 @@ int proc_new(struct vmproc *vmp, phys_bytes start, phys_bytes text_addr,
 	phys_bytes stack, phys_bytes gap, phys_bytes text_here, phys_bytes
 	data_here, vir_bytes stacktop, int prealloc_stack, int is_elf, int full);
 phys_bytes find_kernel_top(void);
+void regular_segs(struct vmproc *);
 
 /* break.c */
 int do_brk(message *msg);
