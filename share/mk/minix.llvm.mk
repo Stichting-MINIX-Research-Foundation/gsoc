@@ -18,6 +18,8 @@ LLVM.LDFLAGS=	-Wllld,-L/usr/lib/bca
 .elif "${LLVM_CONF}" == "NONE"
 LLVM.CFLAGS=	-disable-pass=-codegenprepare
 LLVM.LDFLAGS=	-Wllld,-L/usr/lib/bca
+.else
+.error unknown llvm pass: '${LLVM_CONF}'
 .endif
 
 
