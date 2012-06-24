@@ -27,6 +27,7 @@ Follow these steps in order to install the llvm headers, and to obtain the value
 		- in the compile command
 			- remove 'g++'
 			- remove these flags:
+                -DNDEBUG (to enable assertions in the llvm passes)
 				-D_POSIX_SOURCE
 				-MMD
 				-MP
@@ -41,6 +42,7 @@ Follow these steps in order to install the llvm headers, and to obtain the value
 		- in the link command
 			-remove 'g++'
 			- remove the flags:
+                -DNDEBUG
 				-L...
 				-Wl,-R...
 				-Wl,'$ORIGIN
@@ -53,7 +55,7 @@ The modified link command the value of LDFLAGS becomes.
 
 This is the result. The first line is the CFLAGS variable, and the second line is the LDFLAGS variable:
 
-CXXFLAGS :=-I/usr/pkg/include  -DNDEBUG -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual    -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings
+CXXFLAGS :=-I/usr/pkg/include  -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual    -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings
 
-LDFLAGS :=-DNDEBUG -D_POSIX_SOURCE -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual  -lcompat_minix -lminlib -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -O3 -shared -lm
+LDFLAGS :=-D_POSIX_SOURCE -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual  -lcompat_minix -lminlib -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -O3 -shared -lm
 

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <minix/fault.h>
 
 /* Self variables. */
 #define SEF_SELF_NAME_MAXLEN 20
@@ -178,6 +179,12 @@ int sef_receive_status(endpoint_t src, message *m_ptr, int *status_ptr)
           }
       }
 #endif
+
+      if(m_ptr->m_type == COMMON_REQ_FAULT_INJECTOR){
+        if(do_fault_injector_request(m_ptr) == OK) {
+            continue;
+        }
+      }
 
       /* If we get this far, this is not a valid SEF request, return and
        * let the caller deal with that.

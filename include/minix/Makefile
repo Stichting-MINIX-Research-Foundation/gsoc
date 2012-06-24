@@ -4,7 +4,7 @@ NOOBJ=		# defined
 
 INCSDIR=	/usr/include/minix
 
-INCS+= dirent.h paths.h types.h
+INCS+= dirent.h paths.h types.h fault.h
 
 .include "${MINIXSRCDIR}/common/include/sys/Makefile.mount.inc"
 .include "${MINIXSRCDIR}/common/include/Makefile.termios.inc"

@@ -876,6 +876,11 @@
 #	define SI_WHERE		m1_p1
 #	define SI_SIZE		m1_i2
 
+/* Common request to system services: control fault injection instrumentation. */
+#define COMMON_REQ_FAULT_INJECTOR	(COMMON_RQ_BASE+3)
+#   define FAULT_INJECTOR_CMD m1_i1
+
+#	define SI_WHAT		m1_i1
 /* PM field names */
 /* BRK */
 #define PMBRK_ADDR				m1_p1
