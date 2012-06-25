@@ -181,9 +181,9 @@ int sef_receive_status(endpoint_t src, message *m_ptr, int *status_ptr)
 #endif
 
       if(m_ptr->m_type == COMMON_REQ_FAULT_INJECTOR){
-        if(do_fault_injector_request(m_ptr) == OK) {
+          if(do_fault_injector_request(m_ptr) == OK) {
             continue;
-        }
+          }
       }
 
       /* If we get this far, this is not a valid SEF request, return and
