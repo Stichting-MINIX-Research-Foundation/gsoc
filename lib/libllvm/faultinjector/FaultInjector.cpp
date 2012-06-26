@@ -2,6 +2,7 @@
 #include "llvm/Function.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Support/CommandLine.h"
 
 
 #include <llvm/Transforms/Utils/ValueMapper.h>
@@ -15,8 +16,15 @@
 #include <vector>
 
 #include "FaultInjector.h"
+#include "FaultUtil.h"
 
 using namespace llvm;
+
+static cl::opt<std::string>
+FaultFunctions("fault-functions",
+        cl::desc("specify comma separated list of functions to be instrumented (empty = all functions)"),
+        cl::init(""), cl::NotHidden, cl::ValueRequired);
+
 
 namespace llvm{
 
@@ -24,6 +32,9 @@ namespace llvm{
     FaultInjector::FaultInjector() : ModulePass(ID) {}
 
     bool FaultInjector::runOnModule(Module &M) {
+
+        std::vector<std::string> FunctionNames(0);
+        StringExplode(FaultFunctions, ",", &FunctionNames);
 
         Module::FunctionListType &functionList = M.getFunctionList();
         SmallVectorImpl<BasicBlock*> Clones(0);
@@ -43,7 +54,7 @@ namespace llvm{
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
             Function *F = it;
 
-            if(!F->getName().equals("fault_test")){
+            if(FunctionNames.size() > 0 && std::find (FunctionNames.begin(), FunctionNames.end(), F->getName()) == FunctionNames.end()){
                 continue;
             }
 
@@ -92,7 +103,6 @@ namespace llvm{
                     if(std::find (Clones.begin(), Clones.end(), BB) != Clones.end())
                         // Loop over all instructions, fixing each one as we find it...
                         for (BasicBlock::iterator II = BB->begin(); II != BB->end(); ++II)
-                            //TODO: if variable is not in VMap (is in 1st BB or in arg_list), will the value not be changed, as expected?
                             RemapInstruction(II, VMap, RF_NoModuleLevelChanges);
 
             }
@@ -100,7 +110,7 @@ namespace llvm{
             LoadInst* load_enabled_var = new LoadInst(enabled_var, "", false, NewFirstBB);
             load_enabled_var->setAlignment(4);
             ICmpInst* do_rnd = new ICmpInst(*NewFirstBB, ICmpInst::ICMP_EQ, load_enabled_var, Constant0, "");
-            BranchInst::Create(ClonedOldFirstBB, OldFirstBB, do_rnd, NewFirstBB);
+            BranchInst::Create(OldFirstBB, ClonedOldFirstBB, do_rnd, NewFirstBB);
 
             ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(M.getContext(), 8), 8);
 

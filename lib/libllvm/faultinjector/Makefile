@@ -1,7 +1,7 @@
 .include <bsd.own.mk>
 
 LIB=	LLVMFaultInjector
-SRCS= FaultInjector.cpp
+SRCS= FaultInjector.cpp FaultUtil.cpp
 
 .include "../Makefile.inc"
 

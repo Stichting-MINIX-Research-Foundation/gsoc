@@ -1,9 +1,10 @@
 #include <minix/ipc.h>
 
-#define FAULT_INJECTOR_CMD_SWITCH   0
-#define FAULT_INJECTOR_CMD_TEST     1
+#define FAULT_INJECTOR_CMD_OFF  0
+#define FAULT_INJECTOR_CMD_ON   1
+#define FAULT_INJECTOR_CMD_TEST 2
 
-void fault_switch();
+void fault_switch(int enable);
 
 void fault_test();
 

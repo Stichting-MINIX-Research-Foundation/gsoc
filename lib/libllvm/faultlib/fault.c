@@ -12,23 +12,20 @@ void fault_test(){
     printf("fault_test: %d\n", lh-rh);
 }
 
-void fault_switch(){
-    if(faultinjection_enabled){
-        faultinjection_enabled = 0;
-    }else{
-        faultinjection_enabled = 1;
-    }
+void fault_switch(int enable){
+    faultinjection_enabled = enable;
     printf("faultinjection_enabled: %d\n", faultinjection_enabled);
 }
 
 int do_fault_injector_request(message *m){
     message replymsg;
-    if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_SWITCH){
-        fault_switch();
+    if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_OFF){
+        fault_switch(0);
+    }else if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_ON){
+        fault_switch(1);
     }else if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_TEST){
         fault_test();
     }
-	return send(m->m_source, &replymsg);
-    return OK;
+    return send(m->m_source, &replymsg);
 }
 
