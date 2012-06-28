@@ -28,7 +28,6 @@ FaultFunctions("fault-functions",
 
 namespace llvm{
 
-    char ID; // Pass identification, replacement for typeid
     FaultInjector::FaultInjector() : ModulePass(ID) {}
 
     bool FaultInjector::runOnModule(Module &M) {
@@ -107,10 +106,28 @@ namespace llvm{
 
             }
 
+            /* branch to original blocks or cloned blocks, based on value of enabled_var */
             LoadInst* load_enabled_var = new LoadInst(enabled_var, "", false, NewFirstBB);
             load_enabled_var->setAlignment(4);
             ICmpInst* do_rnd = new ICmpInst(*NewFirstBB, ICmpInst::ICMP_EQ, load_enabled_var, Constant0, "");
             BranchInst::Create(OldFirstBB, ClonedOldFirstBB, do_rnd, NewFirstBB);
+
+            /* loop through all cloned basic blocks, and switch operands of binary instructions */
+            for(std::vector<BasicBlock>::size_type i = 0; i <  Clones.size(); i++){
+                BasicBlock *BB = Clones[i];
+                for (BasicBlock::iterator II = BB->begin(); II != BB->end(); ++II){
+                    Instruction *inst = &(*II);
+                    if (BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
+                       //Op->getOperand(0).swap(Op->getOperand(1));
+                       Value *tmp = Op->getOperand(0);
+                       Op->setOperand(0, Op->getOperand(1));
+                       Op->setOperand(1, tmp);
+                    }
+                }
+            }
+
+#if 0
+            /* Add a printf("cloned\n") call to the first cloned basic block */
 
             ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(M.getContext(), 8), 8);
 
@@ -133,7 +150,7 @@ namespace llvm{
 
             Function* func_printf = M.getFunction("printf");
             CallInst::Create(func_printf, const_ptr_7, "", ClonedOldFirstBB->begin());
-
+#endif
         }
 
         return true;

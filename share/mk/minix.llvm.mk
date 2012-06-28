@@ -70,6 +70,9 @@ LDFLAGS+= ${LLVM.LDFLAGS}
 clean:
 	rm -f ${OBJS:.o=.bcc} ${OBJS:.o=.bccs.s} ${OBJS:.o=.BCC} ${PROG}.bcl ${PROG}.BCL ${PROG}.bcl.sh ${PROG}.BCL.sh ${PROG}.bcls.s
 
+clean_binary:
+	rm -f ${PROG}
+
 .endif
 
 
