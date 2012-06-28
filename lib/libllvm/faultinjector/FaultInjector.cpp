@@ -48,6 +48,8 @@ namespace llvm{
 #endif                    
 
         ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
+        ConstantInt* Constant50 = ConstantInt::get(M.getContext(), APInt(32, StringRef("50"), 10));
+        ConstantInt* Constant100 = ConstantInt::get(M.getContext(), APInt(32, StringRef("100"), 10));
 
 
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
@@ -106,11 +108,25 @@ namespace llvm{
 
             }
 
+            /* Insert a basic block before the cloned basic blocks that will execute the cloned or original blocks, based on randomness */
+            BasicBlock *RndBB = BasicBlock::Create(M.getContext(), "RndBB", F, ClonedOldFirstBB);
+
+            /* Call rand() */
+            Function *RandFunc = M.getFunction("rand");
+            assert(RandFunc);
+            CallInst* RandFuncCall = CallInst::Create(RandFunc, "", RndBB);
+            /* take rand() % 100 */
+            BinaryOperator *Remainder = BinaryOperator::Create(Instruction::SRem, RandFuncCall, Constant100, "", RndBB); 
+            /* remainder < tresshold? */
+            ICmpInst* do_cloned = new ICmpInst(*RndBB, ICmpInst::ICMP_ULE, Remainder, Constant50, "");
+            /* goto first cloned block or first original block */
+            BranchInst::Create(OldFirstBB, ClonedOldFirstBB, do_cloned, RndBB);
+
             /* branch to original blocks or cloned blocks, based on value of enabled_var */
             LoadInst* load_enabled_var = new LoadInst(enabled_var, "", false, NewFirstBB);
             load_enabled_var->setAlignment(4);
             ICmpInst* do_rnd = new ICmpInst(*NewFirstBB, ICmpInst::ICMP_EQ, load_enabled_var, Constant0, "");
-            BranchInst::Create(OldFirstBB, ClonedOldFirstBB, do_rnd, NewFirstBB);
+            BranchInst::Create(OldFirstBB, RndBB, do_rnd, NewFirstBB);
 
             /* loop through all cloned basic blocks, and switch operands of binary instructions */
             for(std::vector<BasicBlock>::size_type i = 0; i <  Clones.size(); i++){

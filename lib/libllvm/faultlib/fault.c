@@ -6,6 +6,10 @@
 #include <signal.h>
 #include <sys/errno.h>
 
+#include "../../libc/stdlib/rand.c"
+
+volatile int magic_ensure_linkage = ((int) &rand);
+
 int faultinjection_enabled = 0, lh=4, rh=3;
 
 void fault_test(){
