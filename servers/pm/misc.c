@@ -22,6 +22,8 @@
 #include <minix/sysinfo.h>
 #include <minix/type.h>
 #include <minix/vm.h>
+#include <minix/ds.h>
+#include <minix/fault.h>
 #include <string.h>
 #include <machine/archtypes.h>
 #include <lib.h>
@@ -503,4 +505,32 @@ char *brk_addr;
 	}
 	_brksize = brk_addr;
 	return 0;
+}
+
+
+int do_fault_injector_request(message *m){
+    char label[DS_MAX_KEYLEN];
+    int s;
+    endpoint_t endpoint;
+    message newmsg = *m, replymsg;
+
+    if ((s=sys_datacopy(who_e, (vir_bytes) m->FAULT_INJECTOR_TARGET_LABEL, 
+                    SELF, (vir_bytes) label, DS_MAX_KEYLEN)) != OK){
+          return(s);
+    }
+
+    if((s=ds_retrieve_label_endpt(label, &endpoint))!=OK){
+        return s;
+    }
+
+    newmsg.FAULT_INJECTOR_SOURCE_ENDPT = who_e;
+
+    if(endpoint == PM_PROC_NR){
+        do_fault_injector_request_impl(&newmsg);
+    }else{
+  	    _syscall(endpoint, COMMON_REQ_FAULT_INJECTOR, &newmsg);
+    }
+    return send(m->m_source, &replymsg);
+
+    return OK;
 }

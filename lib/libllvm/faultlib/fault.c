@@ -21,15 +21,16 @@ void fault_switch(int enable){
     printf("faultinjection_enabled: %d\n", faultinjection_enabled);
 }
 
-int do_fault_injector_request(message *m){
-    message replymsg;
+int do_fault_injector_request_impl(message *m){
     if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_OFF){
         fault_switch(0);
     }else if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_ON){
         fault_switch(1);
     }else if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_TEST){
         fault_test();
+    }else{
+        return EGENERIC;
     }
-    return send(m->m_source, &replymsg);
+    return OK;
 }
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <minix/fault.h>
+#include <minix/ds.h>
 
 #define CMD_OFF_STR     "off"
 #define CMD_ON_STR      "on"
@@ -15,9 +16,12 @@ void print_usage(){
 }
 
 int main(int argc, char *argv[]){
-    int ep, cmd;
-    char *cmd_str;
+    int cmd;
+    char *cmd_str, *label;
 	message msg;
+
+    /* a printf fixes some memory issue when copying the label to pm, for some reason. */
+    printf("%s", "");
 
     prog_name = argv[0];
 
@@ -25,13 +29,15 @@ int main(int argc, char *argv[]){
         print_usage();
         return 1;
     }
-    
-    if(sscanf(argv[1], "%d", &ep)!=1) {
+   
+    label = argv[1]; 
+    cmd_str = argv[2];
+
+    if(strlen(label) <= 0 || strlen(label) > DS_MAX_KEYLEN) {
         print_usage();
         return 1;
     }
 
-    cmd_str = argv[2];
 
     if(!strcmp(cmd_str, CMD_ON_STR)){
         cmd = FAULT_INJECTOR_CMD_ON;
@@ -45,6 +51,7 @@ int main(int argc, char *argv[]){
     }
 
 	msg.FAULT_INJECTOR_CMD  = cmd;
-  	_syscall(ep, COMMON_REQ_FAULT_INJECTOR, &msg);
+	msg.FAULT_INJECTOR_TARGET_LABEL = label;
+  	_syscall(PM_PROC_NR, COMMON_REQ_FAULT_INJECTOR, &msg);
     return 0;
 }

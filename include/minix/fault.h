@@ -9,4 +9,5 @@ void fault_switch(int enable);
 void fault_test();
 
 int do_fault_injector_request(message *m);
+int do_fault_injector_request_impl(message *m);
 

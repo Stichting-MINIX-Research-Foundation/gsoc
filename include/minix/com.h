@@ -879,6 +879,8 @@
 /* Common request to system services: control fault injection instrumentation. */
 #define COMMON_REQ_FAULT_INJECTOR	(COMMON_RQ_BASE+3)
 #   define FAULT_INJECTOR_CMD m1_i1
+#   define FAULT_INJECTOR_TARGET_LABEL m1_p1
+#   define FAULT_INJECTOR_SOURCE_ENDPT m1_i2
 
 #	define SI_WHAT		m1_i1
 /* PM field names */
