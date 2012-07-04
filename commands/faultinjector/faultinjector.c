@@ -12,7 +12,7 @@
 char *prog_name;
 
 void print_usage(){
-        fprintf(stderr, "Usage: %s <endpoint> (%s|%s|%s)\n", prog_name, CMD_ON_STR, CMD_OFF_STR, CMD_TEST_STR);
+        fprintf(stderr, "Usage: %s <label> (%s|%s|%s)\n", prog_name, CMD_ON_STR, CMD_OFF_STR, CMD_TEST_STR);
 }
 
 int main(int argc, char *argv[]){
