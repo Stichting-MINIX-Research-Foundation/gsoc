@@ -16,11 +16,8 @@ LLVM.CFLAGS=	-disable-pass=-codegenprepare -Wo-start -load=libLLVMHello.so -hell
 LLVM.LDFLAGS=	-Wo-start -load=libLLVMHello.so -hello -Wo-end -Wllld,-L/usr/lib/bca
 
 .elif "${LLVM_CONF}" == "FAULT"
-.if "${FAULT_FUNCS}" != ""
-FAULT_FUNCS_ARG= -fault-functions ${FAULT_FUNCS}
-.endif
 LLVM.CFLAGS=	-disable-pass=-codegenprepare -disable-pass=-inline
-LLVM.LDFLAGS=	-Wllld,-L/usr/lib/bca -Wo-start -load=libLLVMFaultInjector.so -faultinjector ${FAULT_FUNCS_ARG} -Wo-end
+LLVM.LDFLAGS=	-Wllld,-L/usr/lib/bca -Wo-start -load=libLLVMFaultInjector.so -faultinjector ${LLVM_PASS_ARGS} -Wo-end
 
 .elif "${LLVM_CONF}" == "NONE"
 LLVM.CFLAGS=	-disable-pass=-codegenprepare
