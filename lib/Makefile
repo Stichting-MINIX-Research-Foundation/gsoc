@@ -46,7 +46,7 @@ SUBDIR+= libcompat_minix libblockdriver libchardriver     \
        libpuffs libsffs
 
 .if (${MKLWIP} == "yes")
-SUBDIR += liblwip libnetsock
+SUBDIR += liblwip libnetsock libbind9 libdns liblwres libisc libisccc libisccfg libbindexport
 .endif
 
 .if (${MACHINE_ARCH} == "i386")
