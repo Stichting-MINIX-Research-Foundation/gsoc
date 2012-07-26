@@ -60,6 +60,7 @@ typedef	_BSD_SSIZE_T_	ssize_t;
 #define SO_RCVBUF	0x1002		/* receive buffer size */
 #define	SO_ERROR	0x1007		/* get error status and clear */
 
+#define SO_BROADCAST    0x0020  /* enable broadcasting */
 
 /*
  * Level number for (get/set)sockopt() to apply to socket itself.

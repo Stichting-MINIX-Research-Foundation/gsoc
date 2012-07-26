@@ -189,6 +189,17 @@ static int _tcp_setsockopt(int sock, int level, int option_name,
 static int _udp_setsockopt(int sock, int level, int option_name,
 	const void *option_value, socklen_t option_len)
 {
+    size_t size;
+    if (level == SOL_SOCKET && option_name == SO_BROADCAST)
+	{
+		if (option_len != sizeof(size))
+		{
+			errno= EINVAL;
+			return -1;
+		}
+		size= *(const size_t *)option_value;
+		return ioctl(sock, NWIOSUDPOPT, &size);
+	}
 #if DEBUG
 	fprintf(stderr, "_udp_setsocketopt: level %d, name %d\n",
 		level, option_name);

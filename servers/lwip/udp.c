@@ -323,6 +323,13 @@ static void udp_set_opt(struct socket * sock, message * m)
 
 	sock->usr_flags = udpopt.nwuo_flags;
 
+    /* Set broadcast if NWUO_BROAD_MASK */
+    if (sock->usr_flags & NWUO_BROAD_MASK) {
+        ip_set_option(pcb, SOF_BROADCAST);
+        sock_reply(sock, OK);
+        return;
+    }
+
 	/*
 	 * We will only get data from userspace and the remote address
 	 * and port are being set which means that from now on we must
