@@ -14,6 +14,15 @@ typedef struct nwio_tcpconf
 	tcpport_t nwtc_remport;
 } nwio_tcpconf_t;
 
+typedef struct nwio_tcp6conf
+{
+    u32_t nwtc_flags;
+    ip6addr_t nwtc_locaddr;
+    ip6addr_t nwtc_remaddr;
+	tcpport_t nwtc_locport;
+	tcpport_t nwtc_remport;
+} nwio_tcp6conf_t;
+
 #define NWTC_NOFLAGS	0x0000L
 #define NWTC_ACC_MASK	0x0003L
 #	define NWTC_EXCL	0x00000001L

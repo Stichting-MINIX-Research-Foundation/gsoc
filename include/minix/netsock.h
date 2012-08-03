@@ -15,7 +15,8 @@ extern char * netsock_user_name;
 #define SOCK_TYPE_IP	0
 #define SOCK_TYPE_TCP	1
 #define SOCK_TYPE_UDP	2
-#define SOCK_TYPES	3
+#define SOCK_TYPE_TCP6  3
+#define SOCK_TYPES	    4
 
 struct socket;
 

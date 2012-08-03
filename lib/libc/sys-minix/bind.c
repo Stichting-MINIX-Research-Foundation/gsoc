@@ -32,6 +32,8 @@ __weak_alias(bind, _bind)
 
 static int _tcp_bind(int sock, const struct sockaddr *address,
 	socklen_t address_len, nwio_tcpconf_t *tcpconfp);
+static int _tcp6_bind(int sock, const struct sockaddr *address,
+	socklen_t address_len, nwio_tcp6conf_t *tcpconfp);
 static int _udp_bind(int sock, const struct sockaddr *address,
 	socklen_t address_len, nwio_udpopt_t *udpoptp);
 static int _uds_bind(int sock, const struct sockaddr *address,
@@ -41,6 +43,7 @@ int bind(int sock, const struct sockaddr *address, socklen_t address_len)
 {
 	int r;
 	nwio_tcpconf_t tcpconf;
+	nwio_tcp6conf_t tcp6conf;
 	nwio_udpopt_t udpopt;
 	struct sockaddr_un uds_addr;
 
@@ -50,6 +53,24 @@ int bind(int sock, const struct sockaddr *address, socklen_t address_len)
 		if (r == -1)
 			return r;
 		r= _tcp_bind(sock, address, address_len, &tcpconf);
+#if DEBUG
+		if (r == -1)
+		{
+			int t_errno= errno;
+			fprintf(stderr, "bind(tcp) failed: %s\n",
+				strerror(errno));
+			errno= t_errno;
+		}
+#endif
+		return r;
+	}
+
+	r= ioctl(sock, NWIOGTCP6CONF, &tcp6conf);
+	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
+	{
+		if (r == -1)
+			return r;
+		r= _tcp6_bind(sock, address, address_len, &tcp6conf);
 #if DEBUG
 		if (r == -1)
 		{
@@ -83,6 +104,47 @@ int bind(int sock, const struct sockaddr *address, socklen_t address_len)
 #endif
 	errno= ENOSYS;
 	return -1;
+}
+
+static int _tcp6_bind(int sock, const struct sockaddr *address,
+	socklen_t address_len, nwio_tcp6conf_t *tcpconfp)
+{
+	int r;
+	nwio_tcp6conf_t tcpconf;
+	struct sockaddr_in6 *sinp;
+
+	sinp= (struct sockaddr_in6 *) __UNCONST(address);
+	if (sinp->sin6_family != AF_INET6 || address_len < sizeof(*sinp))
+	{
+#if DEBUG
+		fprintf(stderr, "bind(tcp): sin_family = %d, len = %d\n",
+			sinp->sin6_family, address_len);
+#endif
+		errno= EAFNOSUPPORT;
+		return -1;
+	}
+
+	if (memcmp(sinp->sin6_addr.s6_addr, &in6addr_any,
+			sizeof(sinp->sin6_addr.s6_addr)) != 0 &&
+			memcmp(sinp->sin6_addr.s6_addr, tcpconfp->nwtc_locaddr,
+				sizeof(sinp->sin6_addr.s6_addr)) != 0)
+	{
+		errno= EADDRNOTAVAIL;
+		return -1;
+	}
+
+	tcpconf.nwtc_flags= 0;
+
+	if (sinp->sin6_port == 0)
+		tcpconf.nwtc_flags |= NWTC_LP_SEL;
+	else
+	{
+		tcpconf.nwtc_flags |= NWTC_LP_SET;
+		tcpconf.nwtc_locport= sinp->sin6_port;
+	}
+
+	r= ioctl(sock, NWIOSTCP6CONF, &tcpconf);
+	return r;
 }
 
 static int _tcp_bind(int sock, const struct sockaddr *address,

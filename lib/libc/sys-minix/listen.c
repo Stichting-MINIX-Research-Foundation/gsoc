@@ -24,6 +24,10 @@ int listen(int sock, int backlog)
 	if (r != -1 || errno != EBADIOCTL)
 		return r;
 
+	r= ioctl(sock, NWIOTCP6LISTENQ, &backlog);
+	if (r != -1 || errno != EBADIOCTL)
+		return r;
+
 	r= ioctl(sock, NWIOSUDSBLOG, &backlog);
 	if (r != -1 || errno != EBADIOCTL)
 		return r;

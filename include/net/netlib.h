@@ -9,6 +9,7 @@ net/netlib.h
 #define ETH_DEVICE	"/dev/eth"
 #define IP_DEVICE	"/dev/ip"
 #define TCP_DEVICE	"/dev/tcp"
+#define TCP6_DEVICE "/dev/tcp6"
 #define UDP_DEVICE	"/dev/udp"
 #define UDS_DEVICE	"/dev/uds"
 

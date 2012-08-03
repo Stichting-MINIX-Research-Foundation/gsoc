@@ -26,6 +26,8 @@
 
 static int _tcp_connect(int sock, const struct sockaddr *address,
 	socklen_t address_len, nwio_tcpconf_t *tcpconfp);
+static int _tcp6_connect(int sock, const struct sockaddr *address,
+	socklen_t address_len, nwio_tcp6conf_t *tcpconfp);
 static int _udp_connect(int sock, const struct sockaddr *address,
 	socklen_t address_len, nwio_udpopt_t *udpoptp);
 static int _uds_connect(int sock, const struct sockaddr *address,
@@ -47,6 +49,17 @@ int connect(int sock, const struct sockaddr *address,
 			return -1;
 		}
 		return _tcp_connect(sock, address, address_len, &tcpconf);
+	}
+
+	r= ioctl(sock, NWIOGTCP6CONF, &tcpconf);
+	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
+	{
+		if (r == -1)
+		{
+			/* Bad file descriptor */
+			return -1;
+		}
+		return _tcp6_connect(sock, address, address_len, &tcpconf);
 	}
 
 	r= ioctl(sock, NWIOGUDPOPT, &udpopt);
@@ -124,6 +137,54 @@ static int _tcp_connect(int sock, const struct sockaddr *address,
 		tcpcl.nwtcl_flags |= TCF_ASYNCH;
 
 	r= ioctl(sock, NWIOTCPCONN, &tcpcl);
+	return r;
+}
+
+
+static int _tcp6_connect(int sock, const struct sockaddr *address,
+	socklen_t address_len, nwio_tcp6conf_t *tcpconfp)
+{
+	int r;
+	struct sockaddr_in6 *sinp;
+	nwio_tcp6conf_t tcpconf;
+	nwio_tcpcl_t tcpcl;
+
+	if (address_len != sizeof(*sinp))
+	{
+		errno= EINVAL;
+		return -1;
+	}
+	sinp= (struct sockaddr_in6 *) __UNCONST(address);
+	if (sinp->sin6_family != AF_INET6)
+	{
+		errno= EINVAL;
+		return -1;
+	}
+	tcpconf.nwtc_flags= NWTC_SET_RA | NWTC_SET_RP;
+	if ((tcpconfp->nwtc_flags & NWTC_LOCPORT_MASK) == NWTC_LP_UNSET)
+		tcpconf.nwtc_flags |= NWTC_LP_SEL;
+	memcpy(tcpconf.nwtc_remaddr, sinp->sin6_addr.s6_addr,
+			sizeof(tcpconf.nwtc_remaddr));
+	tcpconf.nwtc_remport= sinp->sin6_port;
+
+	if (ioctl(sock, NWIOSTCP6CONF, &tcpconf) == -1)
+        {
+		/* Ignore EISCONN error. The NWIOTCP6CONN ioctl will get the
+		 * right error.
+		 */
+		if (errno != EISCONN)
+			return -1;
+	}
+
+	tcpcl.nwtcl_flags= TCF_DEFAULT;
+
+	r= fcntl(sock, F_GETFL);
+	if (r == 1)
+		return -1;
+	if (r & O_NONBLOCK)
+		tcpcl.nwtcl_flags |= TCF_ASYNCH;
+
+	r= ioctl(sock, NWIOTCP6CONN, &tcpcl);
 	return r;
 }
 

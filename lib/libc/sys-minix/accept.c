@@ -23,6 +23,9 @@
 static int _tcp_accept(int sock, struct sockaddr *__restrict address,
 	socklen_t *__restrict address_len);
 
+static int _tcp6_accept(int sock, struct sockaddr *__restrict address,
+	socklen_t *__restrict address_len);
+
 static int _uds_accept(int sock, struct sockaddr *__restrict address,
 	socklen_t *__restrict address_len);
 
@@ -33,6 +36,10 @@ int accept(int sock, struct sockaddr *__restrict address,
 	nwio_udpopt_t udpopt;
 
 	r= _tcp_accept(sock, address, address_len);
+	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
+		return r;
+
+	r= _tcp6_accept(sock, address, address_len);
 	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
 		return r;
 
@@ -78,6 +85,36 @@ static int _tcp_accept(int sock, struct sockaddr *__restrict address,
 		return -1;
 	}
 	r= ioctl(sock, NWIOTCPACCEPTTO, &cookie);
+	if (r == -1)
+	{
+		t_errno= errno;
+		close(s1);
+		errno= t_errno;
+		return -1;
+	}
+	if (address != NULL)
+		getpeername(s1, address, address_len);
+	return s1;
+}
+
+static int _tcp6_accept(int sock, struct sockaddr *__restrict address,
+	socklen_t *__restrict address_len)
+{
+	int r, s1, t_errno;
+	tcp_cookie_t cookie;
+
+	s1= open(TCP6_DEVICE, O_RDWR);
+	if (s1 == -1)
+		return s1;
+	r= ioctl(s1, NWIOGTCP6COOKIE, &cookie);
+	if (r == -1)
+	{
+		t_errno= errno;
+		close(s1);
+		errno= t_errno;
+		return -1;
+	}
+	r= ioctl(sock, NWIOTCP6ACCEPTTO, &cookie);
 	if (r == -1)
 	{
 		t_errno= errno;

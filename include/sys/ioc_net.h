@@ -42,7 +42,8 @@ struct msg_control
 #define NWIOSIPOPT	_IOW('n', 34, struct nwio_ipopt)
 #define NWIOGIPOPT	_IOR('n', 35, struct nwio_ipopt)
 
-#define NWIOGIP6CONF    _IORW('n', 36, struct nwio_ip6conf)
+#define NWIOSIP6CONF    _IOW('n', 36, struct nwio_ip6conf)
+#define NWIOGIP6CONF    _IORW('n', 37, struct nwio_ip6conf)
 
 #define NWIOGIPOROUTE	_IORW('n', 40, struct nwio_route)
 #define NWIOSIPOROUTE	_IOW ('n', 41, struct nwio_route)
@@ -95,6 +96,14 @@ struct msg_control
 #define NWIOSUDSSNDBUF	 _IOW('n', 93, size_t)            /* SO_SNDBUF */
 #define NWIOGUDSRCVBUF	 _IOR('n', 94, size_t)            /* SO_RCVBUF */
 #define NWIOSUDSRCVBUF	 _IOW('n', 95, size_t)            /* SO_RCVBUF */
+
+/* ipv6 sockets */
+#define NWIOSTCP6CONF	_IOW('n', 100, struct nwio_tcpconf)
+#define NWIOGTCP6CONF	_IOR('n', 101, struct nwio_tcpconf)
+#define NWIOTCP6CONN	_IOW('n', 102, struct nwio_tcpcl)
+#define NWIOTCP6LISTENQ	_IOW('n', 103, int)
+#define NWIOGTCP6COOKIE	_IOR('n', 104, struct tcp_cookie)
+#define NWIOTCP6ACCEPTTO	_IOW('n', 105, struct tcp_cookie)
 
 #endif /* _NET__IOCTL_H */
 

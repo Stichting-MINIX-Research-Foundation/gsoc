@@ -34,6 +34,8 @@ extern struct sock_ops sock_udp_ops;
 extern struct sock_ops sock_tcp_ops;
 extern struct sock_ops sock_raw_ip_ops;
 
+extern struct sock_ops sock_tcp6_ops;
+
 void sys_init(void)
 {
 }
@@ -214,6 +216,9 @@ void socket_open(message * m)
                 break;
         case SOCK_TYPE_UDP:
                 ops = &sock_udp_ops;
+                break;
+        case SOCK_TYPE_TCP6:
+                ops = &sock_tcp6_ops;
                 break;
         case SOCK_TYPE_IP:
                 ops = &sock_raw_ip_ops;

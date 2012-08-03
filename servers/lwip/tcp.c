@@ -115,6 +115,23 @@ static int tcp_op_open(struct socket * sock, __unused message * m)
 	return ret;
 }
 
+static int tcp6_op_open(struct socket * sock, __unused message * m)
+{
+	struct tcp_pcb * pcb;
+	int ret;
+
+	debug_tcp_print("socket num %ld", get_sock_num(sock));
+
+	if (!(pcb = tcp_new_ip6()))
+		return ENOMEM;
+	debug_tcp_print("new tcp pcb %p\n", pcb);
+	
+	if ((ret = tcp_fill_new_socket(sock, pcb) != OK))
+		tcp_abandon(pcb, 0);
+	
+	return ret;
+}
+
 static void tcp_recv_free(__unused void * data)
 {
 	pbuf_free((struct pbuf *) data);
@@ -544,6 +561,53 @@ static void tcp_set_conf(struct socket * sock, message * m)
 	sock_reply(sock, OK);
 }
 
+static void tcp6_set_conf(struct socket * sock, message * m)
+{
+	int err;
+	nwio_tcp6conf_t tconf;
+	struct tcp_pcb * pcb = (struct tcp_pcb *) sock->pcb;
+
+	debug_tcp_print("socket num %ld", get_sock_num(sock));
+
+	assert(pcb);
+
+	err = copy_from_user(m->m_source, &tconf, sizeof(tconf),
+				(cp_grant_id_t) m->IO_GRANT, 0);
+
+	if (err != OK)
+		sock_reply(sock, err);
+
+	debug_tcp_print("tconf.nwtc_flags = 0x%lx", tconf.nwtc_flags);
+	debug_tcp_print("tconf.nwtc_remaddr = 0x%x:0x%x:0x%x:0x%x",
+		(unsigned int) tconf.nwtc_remaddr[0], (unsigned int) tconf.nwtc_remaddr[1],
+      	(unsigned int) tconf.nwtc_remaddr[2], (unsigned int) tconf.nwtc_remaddr[3] );
+	debug_tcp_print("tconf.nwtc_remport = 0x%x", ntohs(tconf.nwtc_remport));
+    debug_tcp_print("tconf.nwtc_locaddr = 0x%x:0x%x:0x%x:0x%x",
+		(unsigned int) tconf.nwtc_locaddr[0], (unsigned int) tconf.nwtc_locaddr[1],
+      	(unsigned int) tconf.nwtc_locaddr[2], (unsigned int) tconf.nwtc_locaddr[3] );
+	debug_tcp_print("tconf.nwtc_locport = 0x%x", ntohs(tconf.nwtc_locport));
+
+	sock->usr_flags = tconf.nwtc_flags;
+
+	if (sock->usr_flags & NWTC_SET_RA) {
+        memcpy(&(pcb->remote_ip.ip6.addr), tconf.nwtc_remaddr,
+            sizeof(pcb->remote_ip.ip6.addr));
+    }
+
+	if (sock->usr_flags & NWTC_SET_RP)
+		pcb->remote_port = ntohs(tconf.nwtc_remport);
+
+	if (sock->usr_flags & NWTC_LP_SET) {
+		/* FIXME the user library can only bind to ANY anyway */
+		if (tcp_bind_ip6(pcb, IP6_ADDR_ANY, ntohs(tconf.nwtc_locport)) == ERR_USE) {
+			sock_reply(sock, EADDRINUSE);
+			return;
+		}
+	}
+	
+	sock_reply(sock, OK);
+}
+
 static void tcp_get_conf(struct socket * sock, message * m)
 {
 	int err;
@@ -581,6 +645,47 @@ static void tcp_get_conf(struct socket * sock, message * m)
 
 	sock_reply(sock, OK);
 }
+
+static void tcp6_get_conf(struct socket * sock, message * m)
+{
+	int err;
+	nwio_tcp6conf_t tconf;
+	struct tcp_pcb * pcb = (struct tcp_pcb *) sock->pcb;
+
+	debug_tcp_print("socket num %ld", get_sock_num(sock));
+
+	assert(pcb);
+
+    memcpy(&tconf.nwtc_locaddr, pcb->local_ip.ip6.addr, sizeof(tconf.nwtc_locaddr));
+	tconf.nwtc_locport = htons(pcb->local_port);
+    memcpy(&tconf.nwtc_remaddr, pcb->remote_ip.ip6.addr, sizeof(tconf.nwtc_remaddr));
+	tconf.nwtc_remport = htons(pcb->remote_port);
+	tconf.nwtc_flags = sock->usr_flags;
+
+	debug_tcp_print("tconf.nwtc_flags = 0x%lx", tconf.nwtc_flags);
+	debug_tcp_print("tconf.nwtc_remaddr = 0x%x:0x%x:0x%x:0x%x",
+		(unsigned int) tconf.nwtc_remaddr[0], (unsigned int) tconf.nwtc_remaddr[1],
+      	(unsigned int) tconf.nwtc_remaddr[2], (unsigned int) tconf.nwtc_remaddr[3] );
+	debug_tcp_print("tconf.nwtc_remport = 0x%x", ntohs(tconf.nwtc_remport));
+    debug_tcp_print("tconf.nwtc_locaddr = 0x%x:0x%x:0x%x:0x%x",
+		(unsigned int) tconf.nwtc_locaddr[0], (unsigned int) tconf.nwtc_locaddr[1],
+      	(unsigned int) tconf.nwtc_locaddr[2], (unsigned int) tconf.nwtc_locaddr[3] );
+	debug_tcp_print("tconf.nwtc_locport = 0x%x", ntohs(tconf.nwtc_locport));
+
+	if ((unsigned) m->COUNT < sizeof(tconf)) {
+		sock_reply(sock, EINVAL);
+		return;
+	}
+	
+	err = copy_to_user(m->m_source, &tconf, sizeof(tconf),
+				(cp_grant_id_t) m->IO_GRANT, 0);
+
+	if (err != OK)
+		sock_reply(sock, err);
+
+	sock_reply(sock, OK);
+}
+
 
 static int enqueue_rcv_data(struct socket * sock, struct pbuf * pbuf)
 {
@@ -827,6 +932,30 @@ static void tcp_op_connect(struct socket * sock)
 		panic("Other tcp_connect error %d\n", err);
 }
 
+static void tcp6_op_connect(struct socket * sock)
+{
+	ip6_addr_t remaddr;
+	struct tcp_pcb * pcb;
+	err_t err;
+
+	debug_tcp_print("socket num %ld", get_sock_num(sock));
+	/*
+	 * Connecting is going to send some packets. Unless an immediate error
+	 * occurs this operation is going to block
+	 */
+	sock->flags |= SOCK_FLG_OP_PENDING | SOCK_FLG_OP_CONNECTING;
+
+	/* try to connect now */
+	pcb = (struct tcp_pcb *) sock->pcb;
+	remaddr = pcb->remote_ip.ip6;
+	err = tcp_connect_ip6(pcb, &remaddr, pcb->remote_port,
+				tcp_connected_callback);
+	if (err == ERR_VAL)
+		panic("Wrong tcp_connect arguments");
+	if (err != ERR_OK)
+		panic("Other tcp_connect error %d\n", err);
+}
+
 static int tcp_do_accept(struct socket * listen_sock,
 			message * m,
 			struct tcp_pcb * newpcb)
@@ -908,8 +1037,13 @@ static void tcp_op_listen(struct socket * sock, message * m)
 	err = copy_from_user(m->m_source, &backlog, sizeof(backlog),
 				(cp_grant_id_t) m->IO_GRANT, 0);
 
-	new_pcb = tcp_listen_with_backlog((struct tcp_pcb *) sock->pcb,
+	if (m->REQUEST == NWIOTCPLISTENQ) {
+		new_pcb = tcp_listen_with_backlog((struct tcp_pcb *) sock->pcb,
 							(u8_t) backlog);
+	} else if (m->REQUEST == NWIOTCP6LISTENQ) {
+			new_pcb = tcp_listen_dual_with_backlog((struct tcp_pcb *) sock->pcb,
+							(u8_t) backlog);
+	}
 	debug_tcp_print("listening pcb %p", new_pcb);
 
 	if (!new_pcb) {
@@ -1088,6 +1222,53 @@ static void tcp_op_ioctl(struct socket * sock, message * m, __unused int blk)
 	}
 }
 
+static void tcp6_op_ioctl(struct socket * sock, message * m, __unused int blk)
+{
+	if (!sock->pcb) {
+		sock_reply(sock, ENOTCONN);
+		return;
+	}
+
+	debug_tcp_print("socket num %ld req %c %d %d",
+			get_sock_num(sock),
+			(m->REQUEST >> 8) & 0xff,
+			m->REQUEST & 0xff,
+			(m->REQUEST >> 16) & _IOCPARM_MASK);
+	
+	switch (m->REQUEST) {
+	case NWIOGTCP6CONF:
+		tcp6_get_conf(sock, m);
+		break;
+	case NWIOSTCP6CONF:
+		tcp6_set_conf(sock, m);
+		break;
+	case NWIOTCP6CONN:
+		tcp6_op_connect(sock);
+		break;
+	case NWIOTCP6LISTENQ:
+		tcp_op_listen(sock, m);
+		break;
+	case NWIOGTCP6COOKIE:
+		tcp_op_get_cookie(sock, m);
+		break;
+	case NWIOTCP6ACCEPTTO:
+		tcp_op_accept(sock, m);
+		break;
+	case NWIOTCPSHUTDOWN:
+		tcp_op_shutdown_tx(sock);
+		break;
+	case NWIOGTCPOPT:
+		tcp_get_opt(sock, m);
+		break;
+	case NWIOSTCPOPT:
+		tcp_set_opt(sock, m);
+		break;
+	default:
+		sock_reply(sock, EBADIOCTL);
+		return;
+	}
+}
+
 static void tcp_op_select(struct socket * sock, __unused message * m)
 {
 	int retsel = 0, sel;
@@ -1204,3 +1385,12 @@ struct sock_ops sock_tcp_ops = {
 	.select_reply	= tcp_op_select_reply
 };
 
+struct sock_ops sock_tcp6_ops = {
+	.open		= tcp6_op_open,
+	.close		= tcp_op_close,
+	.read		= tcp_op_read,
+	.write		= tcp_op_write,
+	.ioctl		= tcp6_op_ioctl,
+	.select		= tcp_op_select,
+	.select_reply	= tcp_op_select_reply
+};

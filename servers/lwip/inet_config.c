@@ -249,6 +249,7 @@ void inet_read_conf(void)
 	check_mknod("/dev/ip", 0600, SOCK_TYPE_IP);
 	check_mknod("/dev/tcp", 0666, SOCK_TYPE_TCP);
 	check_mknod("/dev/udp", 0666, SOCK_TYPE_UDP);
+	check_mknod("/dev/tcp6", 0666, SOCK_TYPE_TCP6);
 
 	/*
 	 * create hw devices, to configure ip we need also ip devices for each
