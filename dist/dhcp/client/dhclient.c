@@ -1032,9 +1032,6 @@ void dhcpack (packet)
 		if (client -> xid == packet -> raw -> xid)
 			break;
 	}
-#ifndef __minix
-    /* MINIX FIXME : We are only dealing with Ethernet for now.
-     * Is this check necessary? */
 	if (!client ||
 	    (packet -> interface -> hw_address.hlen - 1 !=
 	     packet -> raw -> hlen) ||
@@ -1045,7 +1042,6 @@ void dhcpack (packet)
 #endif
 		return;
 	}
-#endif /* !__minix */
 
 	if (client -> state != S_REBOOTING &&
 	    client -> state != S_REQUESTING &&
@@ -1506,9 +1502,6 @@ void dhcpoffer (packet)
 
 	/* If we're not receptive to an offer right now, or if the offer
 	   has an unrecognizable transaction id, then just drop it. */
-#ifndef __minix
-	/* MINIX FIXME : We are only dealing with Ethernet for now.
-     * Is this check necessary? */
 	if (!client ||
 	    client -> state != S_SELECTING ||
 	    (packet -> interface -> hw_address.hlen - 1 !=
@@ -1520,7 +1513,6 @@ void dhcpoffer (packet)
 #endif
 		return;
 	}
-#endif /* !__minix */
 
 	sprintf (obuf, "%s from %s", name, piaddr (packet -> client_addr));
 
@@ -2399,11 +2391,8 @@ void make_discover (client, lease)
 		client -> packet_length = BOOTP_MIN_LEN;
 
 	client -> packet.op = BOOTREQUEST;
-    /* MINIX FIXME : Currently working with just ethernet, so 
-     * hardcoding hardware type. There is a problem with the type being set
-     * This should just be a temporary fix */
-	client -> packet.htype = 1; /*client -> interface -> hw_address.hbuf [0];*/
-	client -> packet.hlen = 6;  /*client -> interface -> hw_address.hlen - 1;*/
+	client -> packet.htype = client -> interface -> hw_address.hbuf [0];
+	client -> packet.hlen = client -> interface -> hw_address.hlen - 1;
 	client -> packet.hops = 0;
 	client -> packet.xid = random ();
 	client -> packet.secs = 0; /* filled in by send_discover. */
@@ -2475,11 +2464,8 @@ void make_request (client, lease)
 		client -> packet_length = BOOTP_MIN_LEN;
 
 	client -> packet.op = BOOTREQUEST;
-    /* MINIX FIXME : Currently working with just ethernet, so 
-     * hardcoding hardware type. There is a problem with the type being set
-     * This should just be a temporary fix */
-	client -> packet.htype = 1; /*client -> interface -> hw_address.hbuf [0];*/
-	client -> packet.hlen = 6;  /*client -> interface -> hw_address.hlen - 1;*/
+	client -> packet.htype = client -> interface -> hw_address.hbuf [0];
+	client -> packet.hlen = client -> interface -> hw_address.hlen - 1;
 	client -> packet.hops = 0;
 	client -> packet.xid = client -> xid;
 	client -> packet.secs = 0; /* Filled in by send_request. */
@@ -2552,11 +2538,8 @@ void make_decline (client, lease)
 		client -> packet_length = BOOTP_MIN_LEN;
 
 	client -> packet.op = BOOTREQUEST;
-    /* MINIX FIXME : Currently working with just ethernet, so 
-     * hardcoding hardware type. There is a problem with the type being set
-     * This should just be a temporary fix */
-	client -> packet.htype = 1; /*client -> interface -> hw_address.hbuf [0];*/
-	client -> packet.hlen = 6;  /*client -> interface -> hw_address.hlen - 1;*/
+	client -> packet.htype = client -> interface -> hw_address.hbuf [0];
+	client -> packet.hlen = client -> interface -> hw_address.hlen - 1;
 	client -> packet.hops = 0;
 	client -> packet.xid = client -> xid;
 	client -> packet.secs = 0; /* Filled in by send_request. */
@@ -2616,11 +2599,8 @@ void make_release (client, lease)
 	option_state_dereference (&options, MDL);
 
 	client -> packet.op = BOOTREQUEST;
-    /* MINIX FIXME : Currently working with just ethernet, so 
-     * hardcoding hardware type. There is a problem with the type being set
-     * This should just be a temporary fix */
-	client -> packet.htype = 1; /*client -> interface -> hw_address.hbuf [0];*/
-	client -> packet.hlen = 6;  /*client -> interface -> hw_address.hlen - 1;*/
+	client -> packet.htype = client -> interface -> hw_address.hbuf [0];
+	client -> packet.hlen = client -> interface -> hw_address.hlen - 1;
 	client -> packet.hops = 0;
 	client -> packet.xid = random ();
 	client -> packet.secs = 0;

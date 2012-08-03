@@ -74,20 +74,23 @@ void get_hw_addr(const char *name, struct hardware *hw)
 
 	int eth_fd = open("/dev/eth0", O_RDWR);
 	if (eth_fd < 0) {
-		close(eth_fd);
 		log_fatal("Could not get access to interface\n");
 		return;
 	}
-	
+
 	if (ioctl(eth_fd, NWIOGETHSTAT, &ethstat) < 0) {
 		/* Device isn't Ethernet */
 		log_fatal("Could not get interface stats\n");
+		close(eth_fd);
 		return;
 	}
 
-	
-	hw->hlen = 6; /* Ethernet hardware address is 6 bytes */
-	memcpy(hw->hbuf, &(ethstat.nwes_addr), hw->hlen);
+
+	hw->hlen = 6 + 1; /* Ethernet hw address is 6 bytes + 1 for type*/
+	hw->hbuf[0] = 1; /* DHCP_HTYPE_ETH */
+
+	/* type comes firts, than the address */
+	memcpy(hw->hbuf + 1, &ethstat.nwes_addr.ea_addr, hw->hlen);
 	close(eth_fd);
 }
 
