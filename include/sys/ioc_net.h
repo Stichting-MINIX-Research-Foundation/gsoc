@@ -42,6 +42,8 @@ struct msg_control
 #define NWIOSIPOPT	_IOW('n', 34, struct nwio_ipopt)
 #define NWIOGIPOPT	_IOR('n', 35, struct nwio_ipopt)
 
+#define NWIOGIP6CONF    _IORW('n', 36, struct nwio_ip6conf)
+
 #define NWIOGIPOROUTE	_IORW('n', 40, struct nwio_route)
 #define NWIOSIPOROUTE	_IOW ('n', 41, struct nwio_route)
 #define NWIODIPOROUTE	_IOW ('n', 42, struct nwio_route)

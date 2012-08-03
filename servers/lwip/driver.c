@@ -171,6 +171,10 @@ static void nic_up(struct nic * nic, message * m)
 
 	netif_set_link_up(&nic->netif);
 	netif_set_up(&nic->netif);
+
+	/* Assign the IPV6 link local address for the interface
+ 	* directly from the MAC address */
+	netif_create_ip6_linklocal_address(&nic->netif, 0);
 }
 
 int driver_tx(struct nic * nic)
@@ -504,6 +508,38 @@ static void nic_ioctl_get_conf(__unused struct socket * sock,
 	send_reply(m, OK);
 }
 
+static void nic_ioctl_get_6conf(__unused struct socket * sock,
+				struct nic * nic,
+				message * m)
+{
+	nwio_ip6conf_t ipconf;
+	int err;
+
+	err = copy_from_user(m->m_source, &ipconf, sizeof(ipconf),
+				(cp_grant_id_t) m->IO_GRANT, 0);
+
+	if (ipconf.nwic_index > LWIP_IPV6_NUM_ADDRESSES) {
+		printf("invalid index : %d %d\n", ipconf.nwic_index, LWIP_IPV6_NUM_ADDRESSES);
+		err = ENXIO;
+		send_reply(m, err);
+		return;
+	}
+
+	ipconf.nwic_flags = nic->flags;
+	memcpy(ipconf.nwic_ipaddr, netif_ip6_addr(&(nic->netif),
+			ipconf.nwic_index), sizeof(ipconf.nwic_ipaddr));
+	memset(ipconf.nwic_netmask, 0, sizeof(ipconf.nwic_netmask));
+	memcpy(ipconf.nwic_netmask, netif_ip6_addr(&(nic->netif), 0), 8);
+	ipconf.nwic_mtu = nic->netif.mtu;
+	
+	err = copy_to_user(m->m_source, &ipconf, sizeof(ipconf),
+				(cp_grant_id_t) m->IO_GRANT, 0);
+	if (err != OK)
+		send_reply(m, err);
+
+	send_reply(m, OK);
+}
+
 static void nic_ioctl_set_gateway(__unused struct socket * sock,
 				struct nic * nic,
 				message * m)
@@ -614,6 +650,9 @@ static void nic_do_ioctl(struct socket * sock, struct nic * nic, message * m)
 		break;
 	case NWIOGIPCONF:
 		nic_ioctl_get_conf(sock, nic, m);
+		break;
+	case NWIOGIP6CONF:
+		nic_ioctl_get_6conf(sock, nic, m);
 		break;
 	case NWIOSIPOROUTE:
 		nic_ioctl_set_gateway(sock, nic, m);

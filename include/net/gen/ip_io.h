@@ -20,6 +20,15 @@ typedef struct nwio_ipconf
 	u16_t nwic_mtu;
 } nwio_ipconf_t;
 
+typedef struct nwio_ip6conf
+{
+    u32_t nwic_index;
+    u32_t nwic_flags;
+    ip6addr_t nwic_ipaddr;
+    ip6addr_t nwic_netmask;
+    u16_t nwic_mtu;
+} nwio_ip6conf_t;
+
 #define NWIC_NOFLAGS		0x0
 #define NWIC_FLAGS		0x7
 #	define NWIC_IPADDR_SET		0x1
