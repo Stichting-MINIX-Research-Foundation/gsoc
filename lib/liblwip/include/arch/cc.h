@@ -6,6 +6,7 @@
 #include <minix/types.h>
 #include <errno.h>
 #include <assert.h>
+#include <stdlib.h>
 
 typedef i8_t s8_t;
 typedef i16_t s16_t;
@@ -45,5 +46,7 @@ typedef u32_t mem_ptr_t;
 #define ENSRDESTRUCTION         (_SIGN 175) /* Application terminated lookup */
 #define ENSRQUERYDOMAINTOOLONG  (_SIGN 176) /* Domain name is too long */
 #define ENSRCNAMELOOP           (_SIGN 177) /* Domain name is too long */
+
+#define LWIP_RAND()             ((u32_t) random())
 
 #endif /* __LWIP_CC_H__ */

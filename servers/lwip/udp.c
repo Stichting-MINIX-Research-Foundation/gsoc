@@ -95,7 +95,7 @@ static int udp_do_receive(struct socket * sock,
 
 		hdr.uih_src_addr = addr->addr;
 		hdr.uih_src_port = htons(port);
-		hdr.uih_dst_addr = pcb->local_ip.addr;
+		hdr.uih_dst_addr = pcb->local_ip.ip4.addr;
 		hdr.uih_dst_port = htons(pcb->local_port);
 
 		hdr.uih_data_len = 0;
@@ -363,9 +363,9 @@ static void udp_get_opt(struct socket * sock, message * m)
 
 	assert(pcb);
 
-	udpopt.nwuo_locaddr = pcb->local_ip.addr;
+	udpopt.nwuo_locaddr = pcb->local_ip.ip4.addr;
 	udpopt.nwuo_locport = htons(pcb->local_port);
-	udpopt.nwuo_remaddr = pcb->remote_ip.addr;
+	udpopt.nwuo_remaddr = pcb->remote_ip.ip4.addr;
 	udpopt.nwuo_remport = htons(pcb->remote_port);
 	udpopt.nwuo_flags = sock->usr_flags;
 

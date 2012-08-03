@@ -316,7 +316,7 @@ static void raw_ip_get_opt(struct socket * sock, message * m)
 
 	assert(pcb);
 
-	ipopt.nwio_rem = pcb->remote_ip.addr;
+	ipopt.nwio_rem = pcb->remote_ip.ip4.addr;
 	ipopt.nwio_flags = sock->usr_flags;
 
 	if ((unsigned) m->COUNT < sizeof(ipopt)) {

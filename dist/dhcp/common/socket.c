@@ -80,8 +80,8 @@ void get_hw_addr(const char *name, struct hardware *hw)
 
 	if (ioctl(eth_fd, NWIOGETHSTAT, &ethstat) < 0) {
 		/* Device isn't Ethernet */
-		log_fatal("Could not get interface stats\n");
 		close(eth_fd);
+		log_fatal("Could not get interface stats\n");
 		return;
 	}
 

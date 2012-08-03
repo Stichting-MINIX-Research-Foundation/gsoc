@@ -529,7 +529,7 @@ static void tcp_set_conf(struct socket * sock, message * m)
 	sock->usr_flags = tconf.nwtc_flags;
 
 	if (sock->usr_flags & NWTC_SET_RA)
-		pcb->remote_ip.addr = tconf.nwtc_remaddr;
+		pcb->remote_ip.ip4.addr = tconf.nwtc_remaddr;
 	if (sock->usr_flags & NWTC_SET_RP)
 		pcb->remote_port = ntohs(tconf.nwtc_remport);
 
@@ -554,9 +554,9 @@ static void tcp_get_conf(struct socket * sock, message * m)
 
 	assert(pcb);
 
-	tconf.nwtc_locaddr = pcb->local_ip.addr;
+	tconf.nwtc_locaddr = pcb->local_ip.ip4.addr;
 	tconf.nwtc_locport = htons(pcb->local_port);
-	tconf.nwtc_remaddr = pcb->remote_ip.addr;
+	tconf.nwtc_remaddr = pcb->remote_ip.ip4.addr;
 	tconf.nwtc_remport = htons(pcb->remote_port);
 	tconf.nwtc_flags = sock->usr_flags;
 
@@ -818,7 +818,7 @@ static void tcp_op_connect(struct socket * sock)
 
 	/* try to connect now */
 	pcb = (struct tcp_pcb *) sock->pcb;
-	remaddr = pcb->remote_ip;
+	remaddr = pcb->remote_ip.ip4;
 	err = tcp_connect(pcb, &remaddr, pcb->remote_port,
 				tcp_connected_callback);
 	if (err == ERR_VAL)
