@@ -18,9 +18,10 @@ __weak_alias(socket, _socket)
 
 #define DEBUG 0
 
-static int _tcp_socket(int protocol);
+static int _tcp_socket(int domain, int protocol);
 static int _udp_socket(int protocol);
 static int _uds_socket(int type, int protocol);
+static 
 
 int socket(int domain, int type, int protocol)
 {
@@ -42,10 +43,13 @@ int socket(int domain, int type, int protocol)
 		return _uds_socket(type, protocol);
 
 	if (domain == AF_INET && type == SOCK_STREAM)
-		return _tcp_socket(protocol);
+		return _tcp_socket(domain, protocol);
 
 	if (domain == AF_INET && type == SOCK_DGRAM)
 		return _udp_socket(protocol);
+
+	if (domain == AF_INET6 && type == SOCK_STREAM)
+		return _tcp_socket(domain, protocol);
 
 #if DEBUG
 	fprintf(stderr, "socket: nothing for domain %d, type %d, protocol %d\n",
@@ -55,7 +59,7 @@ int socket(int domain, int type, int protocol)
 	return -1;
 }
 
-static int _tcp_socket(int protocol)
+static int _tcp_socket(int domain, int protocol)
 {
 	int fd;
 	if (protocol != 0 && protocol != IPPROTO_TCP)
@@ -66,7 +70,12 @@ static int _tcp_socket(int protocol)
 		errno= EPROTONOSUPPORT;
 		return -1;
 	}
-	fd= open(TCP_DEVICE, O_RDWR);
+
+	if (domain == AF_INET)
+		fd= open(TCP_DEVICE, O_RDWR);
+	else 
+		fd= open(TCP6_DEVICE, O_RDWR);
+
 	return fd;
 }
 
