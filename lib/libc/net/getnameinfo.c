@@ -482,6 +482,7 @@ ip6_sa2str(sa6, buf, bufsiz, flags)
 	}
 #endif
 
+#ifndef __minix
 	/* if_indextoname() does not take buffer size.  not a good api... */
 	if ((IN6_IS_ADDR_LINKLOCAL(a6) || IN6_IS_ADDR_MC_LINKLOCAL(a6)) &&
 	    bufsiz >= IF_NAMESIZE) {
@@ -490,6 +491,7 @@ ip6_sa2str(sa6, buf, bufsiz, flags)
 			return(strlen(p));
 		}
 	}
+#endif
 
 	/* last resort */
 	n = snprintf(buf, bufsiz, "%u", sa6->sin6_scope_id);

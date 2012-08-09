@@ -56,13 +56,13 @@
  * If this system is missing in6addr_any, LWRES_PLATFORM_NEEDIN6ADDRANY will
  * be defined.
  */
-#define LWRES_PLATFORM_NEEDIN6ADDRANY 1
+#undef LWRES_PLATFORM_NEEDIN6ADDRANY
 
 /*
  * If this system is missing in6addr_loopback, 
  * LWRES_PLATFORM_NEEDIN6ADDRLOOPBACK will be defined.
  */
-#define LWRES_PLATFORM_NEEDIN6ADDRLOOPBACK 1
+#undef LWRES_PLATFORM_NEEDIN6ADDRLOOPBACK
 
 /*
  * If this system has in_addr6, rather than in6_addr,

@@ -2,7 +2,7 @@ NETBSDSRCDIR=	${MINIXSRCDIR}
 NETBSDINCLUDES= /usr/include/
 
 CITRUS=yes 
-USE_INET6=no
+USE_INET6=yes
 
 MKYP=no #requires RPC
 USE_JEMALLOC=no

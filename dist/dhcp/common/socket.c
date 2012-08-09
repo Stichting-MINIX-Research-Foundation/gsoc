@@ -58,16 +58,6 @@
 #include <net/gen/ether.h>
 #include <net/gen/eth_io.h>
 
-/* IPv6 FIXME : Update after IPv6 is set up */
-#define IPV6_JOIN_GROUP       12
-#define IPV6_MULTICAST_HOPS   16
-#define IPV6_PKTINFO          46
-
-struct ipv6_mreq {
-	struct in6_addr ipv6mr_multiaddr;
-	unsigned int    ipv6mr_interface;
-};
-
 void get_hw_addr(const char *name, struct hardware *hw)
 {
 	nwio_ethstat_t ethstat;

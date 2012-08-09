@@ -151,7 +151,6 @@ struct sockaddr_in6 {
 	uint32_t	sin6_scope_id;	/* scope zone index */
 };
 
-#ifndef __minix
 /*
  * Local definition for masks
  */
@@ -201,7 +200,6 @@ extern const struct in6_addr in6mask128;
 #define IPV6_ADDR_INT16_MLL	0x02ff
 #endif
 #endif
-#endif /* !__minix */
 
 /*
  * Definition of some useful macros to handle IP6 addresses
@@ -367,7 +365,6 @@ extern const struct in6_addr in6addr_linklocal_allrouters;
 	 (a)->ia6_lifetime.ia6t_vltime)
 #endif
 
-#ifndef __minix 
 /*
  * Options for use with [gs]etsockopt at the IPV6 level.
  * First word of comment is data type; bool is stored in int.
@@ -803,6 +800,5 @@ extern int inet6_rth_segments(const void *);
 extern struct in6_addr *inet6_rth_getaddr(const void *, int);
 __END_DECLS
 #endif /* _NETBSD_SOURCE */
-#endif /* !__minix */
 
 #endif /* !_NETINET6_IN6_H_ */

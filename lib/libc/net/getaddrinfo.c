@@ -1036,8 +1036,10 @@ ip6_str2scopeid(char *scope, struct sockaddr_in6 *sin6, u_int32_t *scopeid)
 		 * and interfaces, so we simply use interface indices for
 		 * like-local scopes.
 		 */
+#ifndef __minix
 		*scopeid = if_nametoindex(scope);
 		if (*scopeid == 0)
+#endif
 			goto trynumeric;
 		return 0;
 	}

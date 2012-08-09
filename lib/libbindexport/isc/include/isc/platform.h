@@ -58,19 +58,19 @@
  * If this system is missing in6addr_any, ISC_PLATFORM_NEEDIN6ADDRANY will
  * be defined.
  */
-#define ISC_PLATFORM_NEEDIN6ADDRANY 1
+#undef ISC_PLATFORM_NEEDIN6ADDRANY
 
 /*! \brief
  * If this system is missing in6addr_loopback, ISC_PLATFORM_NEEDIN6ADDRLOOPBACK
  * will be defined.
  */
-#define ISC_PLATFORM_NEEDIN6ADDRLOOPBACK 1
+#undef ISC_PLATFORM_NEEDIN6ADDRLOOPBACK
 
 /*! \brief
  * If this system has in6_pktinfo, ISC_PLATFORM_HAVEIN6PKTINFO will be
  * defined.
  */
-#undef ISC_PLATFORM_HAVEIN6PKTINFO
+#define ISC_PLATFORM_HAVEIN6PKTINFO 1
 
 /*! \brief
  * If this system has in_addr6, rather than in6_addr, ISC_PLATFORM_HAVEINADDR6
