@@ -36,6 +36,8 @@ static int _tcp6_bind(int sock, const struct sockaddr *address,
 	socklen_t address_len, nwio_tcp6conf_t *tcpconfp);
 static int _udp_bind(int sock, const struct sockaddr *address,
 	socklen_t address_len, nwio_udpopt_t *udpoptp);
+static int _udp6_bind(int sock, const struct sockaddr *address,
+	socklen_t address_len, nwio_udp6opt_t *udpoptp);
 static int _uds_bind(int sock, const struct sockaddr *address,
 	socklen_t address_len, struct sockaddr_un *uds_addr);
 
@@ -45,6 +47,7 @@ int bind(int sock, const struct sockaddr *address, socklen_t address_len)
 	nwio_tcpconf_t tcpconf;
 	nwio_tcp6conf_t tcp6conf;
 	nwio_udpopt_t udpopt;
+	nwio_udp6opt_t udp6opt;
 	struct sockaddr_un uds_addr;
 
 	r= ioctl(sock, NWIOGTCPCONF, &tcpconf);
@@ -89,6 +92,14 @@ int bind(int sock, const struct sockaddr *address, socklen_t address_len)
 		if (r == -1)
 			return r;
 		return _udp_bind(sock, address, address_len, &udpopt);
+	}
+
+	r= ioctl(sock, NWIOGUDP6OPT, &udp6opt);
+	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
+	{
+		if (r == -1)
+			return r;
+		return _udp6_bind(sock, address, address_len, &udp6opt);
 	}
 
 	r= ioctl(sock, NWIOGUDSADDR, &uds_addr);
@@ -239,6 +250,64 @@ static int _udp_bind(int sock, const struct sockaddr *address,
 		udpopt.nwuo_flags |= NWUO_DI_IPOPT;
 
 	r= ioctl(sock, NWIOSUDPOPT, &udpopt);
+	return r;
+}
+
+static int _udp6_bind(int sock, const struct sockaddr *address,
+	socklen_t address_len, nwio_udp6opt_t *udpoptp)
+{
+	int r;
+	nwio_udp6opt_t udpopt;
+	unsigned long curr_flags;
+	struct sockaddr_in6 *sinp;
+
+	sinp= (struct sockaddr_in6 *) __UNCONST(address);
+	if (sinp->sin6_family != AF_INET6 || address_len < sizeof(*sinp))
+	{
+#if DEBUG
+		fprintf(stderr, "bind(udp): sin6_family = %d, len = %d\n",
+			sinp->sin6_family, address_len);
+#endif
+		errno= EAFNOSUPPORT;
+		return -1;
+	}
+
+	if (memcmp(&sinp->sin6_addr, &in6addr_any,
+				sizeof(in6addr_any)) != 0 &&
+		memcmp(sinp->sin6_addr.s6_addr, udpoptp->nwuo_locaddr,
+			sizeof(udpoptp->nwuo_locaddr)) != 0)
+	{
+		errno= EADDRNOTAVAIL;
+		return -1;
+	}
+
+	udpopt.nwuo_flags= 0;
+
+	if (sinp->sin6_port == 0)
+		udpopt.nwuo_flags |= NWUO_LP_SEL;
+	else
+	{
+		udpopt.nwuo_flags |= NWUO_LP_SET;
+		udpopt.nwuo_locport= sinp->sin6_port;
+	}
+
+	curr_flags= udpoptp->nwuo_flags;
+	if (!(curr_flags & NWUO_ACC_MASK))
+		udpopt.nwuo_flags |= NWUO_EXCL;
+	if (!(curr_flags & (NWUO_EN_LOC|NWUO_DI_LOC)))
+		udpopt.nwuo_flags |= NWUO_EN_LOC;
+	if (!(curr_flags & (NWUO_EN_BROAD|NWUO_DI_BROAD)))
+		udpopt.nwuo_flags |= NWUO_EN_BROAD;
+	if (!(curr_flags & (NWUO_RP_SET|NWUO_RP_ANY)))
+		udpopt.nwuo_flags |= NWUO_RP_ANY;
+	if (!(curr_flags & (NWUO_RA_SET|NWUO_RA_ANY)))
+		udpopt.nwuo_flags |= NWUO_RA_ANY;
+	if (!(curr_flags & (NWUO_RWDATONLY|NWUO_RWDATALL)))
+		udpopt.nwuo_flags |= NWUO_RWDATALL;
+	if (!(curr_flags & (NWUO_EN_IPOPT|NWUO_DI_IPOPT)))
+		udpopt.nwuo_flags |= NWUO_DI_IPOPT;
+
+	r= ioctl(sock, NWIOSUDP6OPT, &udpopt);
 	return r;
 }
 

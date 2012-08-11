@@ -36,6 +36,7 @@ int getsockopt(int sock, int level, int option_name,
 	int r;
 	nwio_tcpopt_t tcpopt;
 	nwio_udpopt_t udpopt;
+	nwio_udp6opt_t udp6opt;
 	struct sockaddr_un uds_addr;
 
 	r= ioctl(sock, NWIOGTCPOPT, &tcpopt);
@@ -51,6 +52,18 @@ int getsockopt(int sock, int level, int option_name,
 	}
 
 	r= ioctl(sock, NWIOGUDPOPT, &udpopt);
+	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
+	{
+		if (r == -1)
+		{
+			/* Bad file descriptor */
+			return -1;
+		}
+		return _udp_getsockopt(sock, level, option_name,
+			option_value, option_len);
+	}
+
+	r= ioctl(sock, NWIOGUDP6OPT, &udp6opt);
 	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
 	{
 		if (r == -1)

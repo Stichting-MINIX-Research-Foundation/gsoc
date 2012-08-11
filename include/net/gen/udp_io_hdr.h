@@ -12,5 +12,15 @@ typedef struct udp_io_hdr
 	u16_t uih_data_len;
 } udp_io_hdr_t;
 
+typedef struct udp6_io_hdr
+{
+	ip6addr_t uih_src_addr;
+	ip6addr_t uih_dst_addr;
+	udpport_t uih_src_port;
+	udpport_t uih_dst_port;
+	u16_t uih_ip_opt_len;
+	u16_t uih_data_len;
+} udp6_io_hdr_t;
+
 
 #endif /* __SERVER__IP__GEN__UDP_IO_HDR_H__ */

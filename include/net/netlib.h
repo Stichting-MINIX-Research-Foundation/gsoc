@@ -11,6 +11,7 @@ net/netlib.h
 #define TCP_DEVICE	"/dev/tcp"
 #define TCP6_DEVICE "/dev/tcp6"
 #define UDP_DEVICE	"/dev/udp"
+#define UDP6_DEVICE	"/dev/udp6"
 #define UDS_DEVICE	"/dev/uds"
 
 #endif /* _NET__NETLIB_H_ */

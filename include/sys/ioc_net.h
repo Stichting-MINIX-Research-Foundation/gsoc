@@ -105,6 +105,9 @@ struct msg_control
 #define NWIOGTCP6COOKIE	_IOR('n', 104, struct tcp_cookie)
 #define NWIOTCP6ACCEPTTO	_IOW('n', 105, struct tcp_cookie)
 
+#define NWIOSUDP6OPT	_IOW('n', 108, struct nwio_udp6opt)
+#define NWIOGUDP6OPT	_IOR('n', 109, struct nwio_udp6opt)
+
 #endif /* _NET__IOCTL_H */
 
 /*

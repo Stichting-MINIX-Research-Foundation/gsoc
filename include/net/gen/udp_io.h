@@ -14,6 +14,15 @@ typedef struct nwio_udpopt
 	ipaddr_t nwuo_remaddr;
 } nwio_udpopt_t;
 
+typedef struct nwio_udp6opt
+{
+	unsigned long nwuo_flags;
+	udpport_t nwuo_locport;
+	udpport_t nwuo_remport;
+	ip6addr_t nwuo_locaddr;
+	ip6addr_t nwuo_remaddr;
+} nwio_udp6opt_t;
+
 #define NWUO_NOFLAGS		0x0000L
 #define NWUO_ACC_MASK		0x0003L
 #define 	NWUO_EXCL		0x00000001L

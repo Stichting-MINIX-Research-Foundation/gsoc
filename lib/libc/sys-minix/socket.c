@@ -19,7 +19,7 @@ __weak_alias(socket, _socket)
 #define DEBUG 0
 
 static int _tcp_socket(int domain, int protocol);
-static int _udp_socket(int protocol);
+static int _udp_socket(int domain, int protocol);
 static int _uds_socket(int type, int protocol);
 static 
 
@@ -46,10 +46,13 @@ int socket(int domain, int type, int protocol)
 		return _tcp_socket(domain, protocol);
 
 	if (domain == AF_INET && type == SOCK_DGRAM)
-		return _udp_socket(protocol);
+		return _udp_socket(domain, protocol);
 
 	if (domain == AF_INET6 && type == SOCK_STREAM)
 		return _tcp_socket(domain, protocol);
+
+	if (domain == AF_INET6 && type == SOCK_DGRAM)
+		return _udp_socket(domain, protocol);
 
 #if DEBUG
 	fprintf(stderr, "socket: nothing for domain %d, type %d, protocol %d\n",
@@ -79,10 +82,11 @@ static int _tcp_socket(int domain, int protocol)
 	return fd;
 }
 
-static int _udp_socket(int protocol)
+static int _udp_socket(int domain, int protocol)
 {
 	int r, fd, t_errno;
 	struct sockaddr_in sin;
+	struct sockaddr_in6 sin6;
 
 	if (protocol != 0 && protocol != IPPROTO_UDP)
 	{
@@ -92,15 +96,28 @@ static int _udp_socket(int protocol)
 		errno= EPROTONOSUPPORT;
 		return -1;
 	}
-	fd= open(UDP_DEVICE, O_RDWR);
-	if (fd == -1)
-		return fd;
+	if (domain == AF_INET) {
+		fd= open(UDP_DEVICE, O_RDWR);
+		if (fd == -1)
+			return fd;
 
-	/* Bind is implict for UDP sockets? */
-	sin.sin_family= AF_INET;
-	sin.sin_addr.s_addr= INADDR_ANY;
-	sin.sin_port= 0;
-	r= bind(fd, (struct sockaddr *)&sin, sizeof(sin));
+		/* Bind is implict for UDP sockets? */
+		sin.sin_family= AF_INET;
+		sin.sin_addr.s_addr= INADDR_ANY;
+		sin.sin_port= 0;
+		r= bind(fd, (struct sockaddr *)&sin, sizeof(sin));
+	} else {
+		fd= open(UDP6_DEVICE, O_RDWR);
+		if (fd == -1)
+			return fd;
+
+		/* Bind is implict for UDP sockets? */
+		sin6.sin6_family= AF_INET6;
+		sin6.sin6_addr = in6addr_any;
+		sin6.sin6_port= 0;
+		r= bind(fd, (struct sockaddr *)&sin6, sizeof(sin6));
+	}
+
 	if (r != 0)
 	{
 		t_errno= errno;
