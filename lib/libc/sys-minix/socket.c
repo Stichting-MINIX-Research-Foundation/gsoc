@@ -21,7 +21,6 @@ __weak_alias(socket, _socket)
 static int _tcp_socket(int domain, int protocol);
 static int _udp_socket(int domain, int protocol);
 static int _uds_socket(int type, int protocol);
-static 
 
 int socket(int domain, int type, int protocol)
 {
