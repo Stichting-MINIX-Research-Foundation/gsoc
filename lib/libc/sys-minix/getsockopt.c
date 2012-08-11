@@ -51,6 +51,18 @@ int getsockopt(int sock, int level, int option_name,
 			option_value, option_len);
 	}
 
+	r= ioctl(sock, NWIOGTCP6OPT, &tcpopt);
+	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
+	{
+		if (r == -1)
+		{
+			/* Bad file descriptor */
+			return -1;
+		}
+		return _tcp_getsockopt(sock, level, option_name,
+			option_value, option_len);
+	}
+
 	r= ioctl(sock, NWIOGUDPOPT, &udpopt);
 	if (r != -1 || (errno != ENOTTY && errno != EBADIOCTL))
 	{

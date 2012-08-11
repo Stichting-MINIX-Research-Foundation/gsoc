@@ -579,18 +579,25 @@ static void tcp6_set_conf(struct socket * sock, message * m)
 
 	debug_tcp_print("tconf.nwtc_flags = 0x%lx", tconf.nwtc_flags);
 	debug_tcp_print("tconf.nwtc_remaddr = 0x%x:0x%x:0x%x:0x%x",
-		(unsigned int) tconf.nwtc_remaddr[0], (unsigned int) tconf.nwtc_remaddr[1],
-      	(unsigned int) tconf.nwtc_remaddr[2], (unsigned int) tconf.nwtc_remaddr[3] );
+		(unsigned int) tconf.nwtc_remaddr[0],
+		(unsigned int) tconf.nwtc_remaddr[1],
+		(unsigned int) tconf.nwtc_remaddr[2],
+		(unsigned int) tconf.nwtc_remaddr[3] );
 	debug_tcp_print("tconf.nwtc_remport = 0x%x", ntohs(tconf.nwtc_remport));
     debug_tcp_print("tconf.nwtc_locaddr = 0x%x:0x%x:0x%x:0x%x",
-		(unsigned int) tconf.nwtc_locaddr[0], (unsigned int) tconf.nwtc_locaddr[1],
-      	(unsigned int) tconf.nwtc_locaddr[2], (unsigned int) tconf.nwtc_locaddr[3] );
+		(unsigned int) tconf.nwtc_locaddr[0],
+		(unsigned int) tconf.nwtc_locaddr[1],
+		(unsigned int) tconf.nwtc_locaddr[2],
+		(unsigned int) tconf.nwtc_locaddr[3] );
 	debug_tcp_print("tconf.nwtc_locport = 0x%x", ntohs(tconf.nwtc_locport));
 
 	sock->usr_flags = tconf.nwtc_flags;
 
+	/* FIXME : Instead of memcpy() perhaps we could typecast
+	 * the address to a struct and do struct assignment to avoid the
+	 * overhead of a generic copy */
 	if (sock->usr_flags & NWTC_SET_RA) {
-        memcpy(&(pcb->remote_ip.ip6.addr), tconf.nwtc_remaddr,
+        memcpy(&pcb->remote_ip.ip6.addr, tconf.nwtc_remaddr,
             sizeof(pcb->remote_ip.ip6.addr));
     }
 
@@ -656,20 +663,26 @@ static void tcp6_get_conf(struct socket * sock, message * m)
 
 	assert(pcb);
 
-    memcpy(&tconf.nwtc_locaddr, pcb->local_ip.ip6.addr, sizeof(tconf.nwtc_locaddr));
+    memcpy(&tconf.nwtc_locaddr, pcb->local_ip.ip6.addr,
+			sizeof(tconf.nwtc_locaddr));
 	tconf.nwtc_locport = htons(pcb->local_port);
-    memcpy(&tconf.nwtc_remaddr, pcb->remote_ip.ip6.addr, sizeof(tconf.nwtc_remaddr));
+    memcpy(&tconf.nwtc_remaddr, pcb->remote_ip.ip6.addr,
+			sizeof(tconf.nwtc_remaddr));
 	tconf.nwtc_remport = htons(pcb->remote_port);
 	tconf.nwtc_flags = sock->usr_flags;
 
 	debug_tcp_print("tconf.nwtc_flags = 0x%lx", tconf.nwtc_flags);
 	debug_tcp_print("tconf.nwtc_remaddr = 0x%x:0x%x:0x%x:0x%x",
-		(unsigned int) tconf.nwtc_remaddr[0], (unsigned int) tconf.nwtc_remaddr[1],
-      	(unsigned int) tconf.nwtc_remaddr[2], (unsigned int) tconf.nwtc_remaddr[3] );
+		(unsigned int) tconf.nwtc_remaddr[0],
+		(unsigned int) tconf.nwtc_remaddr[1],
+		(unsigned int) tconf.nwtc_remaddr[2],
+		(unsigned int) tconf.nwtc_remaddr[3] );
 	debug_tcp_print("tconf.nwtc_remport = 0x%x", ntohs(tconf.nwtc_remport));
     debug_tcp_print("tconf.nwtc_locaddr = 0x%x:0x%x:0x%x:0x%x",
-		(unsigned int) tconf.nwtc_locaddr[0], (unsigned int) tconf.nwtc_locaddr[1],
-      	(unsigned int) tconf.nwtc_locaddr[2], (unsigned int) tconf.nwtc_locaddr[3] );
+		(unsigned int) tconf.nwtc_locaddr[0],
+		(unsigned int) tconf.nwtc_locaddr[1],
+		(unsigned int) tconf.nwtc_locaddr[2],
+		(unsigned int) tconf.nwtc_locaddr[3] );
 	debug_tcp_print("tconf.nwtc_locport = 0x%x", ntohs(tconf.nwtc_locport));
 
 	if ((unsigned) m->COUNT < sizeof(tconf)) {

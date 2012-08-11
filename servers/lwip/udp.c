@@ -743,10 +743,10 @@ static void udp6_op_ioctl(struct socket * sock, message * m, __unused int blk)
 
 	switch (m->REQUEST) {
 	case NWIOSUDP6OPT:
-		udp_set_opt(sock, m);
+		udp6_set_opt(sock, m);
 		break;
 	case NWIOGUDP6OPT:
-		udp_get_opt(sock, m);
+		udp6_get_opt(sock, m);
 		break;
 	default:
 		sock_reply(sock, EBADIOCTL);
