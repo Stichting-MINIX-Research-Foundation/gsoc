@@ -28,7 +28,7 @@ int socket(int domain, int type, int protocol)
 	fprintf(stderr, "socket: domain %d, type %d, protocol %d\n",
 		domain, type, protocol);
 #endif
-	if (domain != AF_INET && domain != AF_UNIX)
+	if (domain != AF_INET && domain != AF_UNIX && domain != AF_INET6)
 	{
 #if DEBUG
 		fprintf(stderr, "socket: bad domain %d\n", domain);

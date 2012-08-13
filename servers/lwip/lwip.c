@@ -25,8 +25,8 @@
 
 endpoint_t lwip_ep;
 
-static timer_t tcp_ftmr, tcp_stmr, arp_tmr;
-static int arp_ticks, tcp_fticks, tcp_sticks;
+static timer_t tcp_ftmr, tcp_stmr, arp_tmr, ip6nd_tmr;
+static int arp_ticks, tcp_fticks, tcp_sticks, ip6nd_ticks;
 
 static struct netif * netif_lo;
 
@@ -58,6 +58,12 @@ static void tcp_swatchdog(__unused timer_t *tp)
 	set_timer(&tcp_ftmr, tcp_sticks, tcp_swatchdog, 0);
 }
 
+static void nd6_watchdog(__unused timer_t *tp)
+{
+	nd6_tmr();
+	set_timer(&ip6dn_tmr, ip6nd_ticks, nd6_watchdog, 0);
+}
+
 static int sef_cb_init_fresh(__unused int type, __unused sef_init_info_t *info)
 {
 	int err;
@@ -85,12 +91,14 @@ static int sef_cb_init_fresh(__unused int type, __unused sef_init_info_t *info)
 	arp_ticks = ARP_TMR_INTERVAL / (1000 / hz);
 	tcp_fticks = TCP_FAST_INTERVAL / (1000 / hz);
 	tcp_sticks = TCP_SLOW_INTERVAL / (1000 / hz);
+	ip6nd_ticks = ND6_TIMER_INTERVAL / (1000 / hz);
 
 	etharp_init();
 	
 	set_timer(&arp_tmr, arp_ticks, arp_watchdog, 0);
 	set_timer(&tcp_ftmr, tcp_fticks, tcp_fwatchdog, 0);
 	set_timer(&tcp_stmr, tcp_sticks, tcp_swatchdog, 0);
+	set_timer(&ip6nd_tmr, ip6nd_ticks, nd6_watchdog, 0);
 	
 	netif_init();
 	netif_lo = netif_find("lo0");

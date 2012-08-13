@@ -174,7 +174,8 @@ static void nic_up(struct nic * nic, message * m)
 
 	/* Assign the IPV6 link local address for the interface
  	* directly from the MAC address */
-	netif_create_ip6_linklocal_address(&nic->netif, 0);
+	netif_create_ip6_linklocal_address(&nic->netif, 1);
+	nic->netif.ip6_addr_state[0] = IP6_ADDR_VALID;
 }
 
 int driver_tx(struct nic * nic)
