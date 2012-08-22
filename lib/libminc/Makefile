@@ -6,17 +6,15 @@
 
 LIB=		minc
 
-CPPFLAGS.sched_start.c+=	-I${MINIXSRCDIR}
+CPPFLAGS.sched_start.c+=	-I${NETBSDSRCDIR}
 
-LIBCSRCDIR=${MINIXSRCDIR}/lib/libc
-
-MACHINE_ARCH=${MACHINE}
+LIBCSRCDIR=${NETBSDSRCDIR}/lib/libc
 
 #
 # Shared libc with userspace (/common/lib/libc)
 #
-.include "${MINIXSRCDIR}/common/lib/libc/Makefile.inc"
-.include "${.CURDIR}/arch/${MACHINE}/Makefile.libc.inc"
+.include "${NETBSDSRCDIR}/common/lib/libc/Makefile.inc"
+.include "${.CURDIR}/arch/${MACHINE_ARCH}/Makefile.libc.inc"
 .if empty(SRCS:Mbyte_swap_8.*)
 SRCS+= bswap64.c
 .endif
@@ -37,8 +35,8 @@ SRCS+= 	adddi3.c anddi3.c ashldi3.c ashrdi3.c cmpdi2.c divdi3.c \
 	random.c strtoll.c strtoul.c strtoull.c strtoumax.c \
 	memchr.c memcmp.c memcpy.c memmove.c popcount32.c popcount64.c \
 	strcasecmp.c strcat.c strchr.c strcmp.c strcpy.c strlcat.c \
-	strlcpy.c strlen.c strncasecmp.c strncmp.c strncpy.c strrchr.c \
-	strsep.c strstr.c ptree.c rb.c sha1.c sha2.c
+	strlcpy.c strlen.c strncasecmp.c strncmp.c strncpy.c strnlen.c \
+	strrchr.c strsep.c strstr.c ptree.c rb.c sha1.c sha2.c
 SRCS+= ${i}
 CPPFLAGS.${i}+= -D_LIBC -I${LIBCSRCDIR}/include
 .endfor
@@ -75,8 +73,9 @@ CPPFLAGS.${i}+= -I${LIBCSRCDIR}/stdlib -I${LIBCSRCDIR}/include
 # Import from gen
 
 errlist.c: ${LIBCSRCDIR}/gen/errlist.awk \
-	   ${MINIXSRCDIR}/include/sys/errno.h
-	cat ${MINIXSRCDIR}/include/sys/errno.h | ${TOOL_SED} 's/(_SIGN//' | ${TOOL_AWK} -f ${LIBCSRCDIR}/gen/errlist.awk > ${.TARGET}
+	   ${NETBSDSRCDIR}/include/sys/errno.h
+	cat ${NETBSDSRCDIR}/include/sys/errno.h | ${TOOL_SED} 's/(_SIGN//' | ${TOOL_AWK} -f ${LIBCSRCDIR}/gen/errlist.awk > ${.TARGET}
+CLEANFILES+=	errlist.c
 
 .for i in assert.c _errno.c errno.c _env.c errlist.c \
 	execle.c getprogname.c sleep.c time.c \
@@ -87,8 +86,8 @@ errlist.c: ${LIBCSRCDIR}/gen/errlist.awk \
 	isnanf_ieee754.c isnand_ieee754.c \
 	isfinitef_ieee754.c isfinited_ieee754.c \
 	signbitf_ieee754.c signbitd_ieee754.c \
-	nanf.c infinityl.c 
-.PATH.c: ${LIBCSRCDIR}/arch/${MACHINE}/gen ${LIBCSRCDIR}/gen/minix \
+	nanf.c
+.PATH.c: ${LIBCSRCDIR}/arch/${MACHINE_ARCH}/gen ${LIBCSRCDIR}/gen/minix \
 	${LIBCSRCDIR}/gen ${LIBCSRCDIR}
 SRCS+= ${i}
 CPPFLAGS.${i}+= -I${LIBCSRCDIR}/include
@@ -105,8 +104,8 @@ CPPFLAGS.${i}+= -I${LIBCSRCDIR}/include
 .endfor
 # Import from string
 .for i in strcspn.c strerror.c strerror_r.c strtol.c \
-	bcmp.S bcopy.S bzero.S 
-.PATH.S: ${LIBCSRCDIR}/arch/${MACHINE}/string
+	bcopy.S bzero.S
+.PATH.S: ${LIBCSRCDIR}/arch/${MACHINE_ARCH}/string
 .PATH.c: ${LIBCSRCDIR}/string
 SRCS+= ${i}
 CPPFLAGS.${i}+= -D_LIBC -I${LIBCSRCDIR}/include
@@ -130,9 +129,9 @@ CPPFLAGS.${i}+= -I${LIBCSRCDIR}/include -I${LIBCSRCDIR}/locale
 	link.c _mcontext.c mknod.c mmap.c nanosleep.c open.c \
 	read.c sbrk.c select.c setuid.c sigprocmask.c stat.c \
 	stime.c syscall.c _ucontext.c umask.c unlink.c waitpid.c \
-	brksize.S _ipc.S _senda.S ucontext.S mmap.c
+	brksize.S _ipc.S _senda.S ucontext.S mmap.c init.c
 .PATH.c: ${LIBCSRCDIR}/sys-minix
-.PATH.S: ${LIBCSRCDIR}/arch/${MACHINE}/sys-minix
+.PATH.S: ${LIBCSRCDIR}/arch/${MACHINE_ARCH}/sys-minix
 SRCS+= ${i}
 CPPFLAGS.${i}+= -I${LIBCSRCDIR}/include
 .endfor

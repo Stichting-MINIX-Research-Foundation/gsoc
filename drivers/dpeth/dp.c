@@ -87,7 +87,7 @@ static void dp_confaddr(dpeth_t * dep)
   int ix;
   long val;
 
-  strcpy(ea_key, "DPETH0_EA");
+  strlcpy(ea_key, "DPETH0_EA", sizeof(ea_key));
   ea_key[5] += de_instance;
 
   for (ix = 0; ix < SA_ADDR_LEN; ix++) {
@@ -114,7 +114,7 @@ static void update_conf(dpeth_t * dep, const dp_conf_t * dcp)
   char ec_key[16];
   long val;
 
-  strcpy(ec_key, "DPETH0");
+  strlcpy(ec_key, "DPETH0", sizeof(ec_key));
   ec_key[5] += de_instance;
 
   dep->de_mode = DEM_SINK;
@@ -192,7 +192,7 @@ static void get_userdata_s(int user_proc, cp_grant_id_t grant,
   vir_bytes len;
 
   len = (count > IOVEC_NR ? IOVEC_NR : count) * sizeof(iovec_t);
-  if ((rc = sys_safecopyfrom(user_proc, grant, 0, (vir_bytes)loc_addr, len, D)) != OK)
+  if ((rc = sys_safecopyfrom(user_proc, grant, 0, (vir_bytes)loc_addr, len)) != OK)
 	panic(CopyErrMsg, rc);
   return;
 }
@@ -216,7 +216,8 @@ static void do_first_init(dpeth_t *dep, const dp_conf_t *dcp)
    * automatically. Return the IRQ line number when an interrupt occurs.
    */
   dep->de_hook = dep->de_irq;
-  sys_irqsetpolicy(dep->de_irq, 0 /*IRQ_REENABLE*/, &dep->de_hook);
+  if (sys_irqsetpolicy(dep->de_irq, 0 /*IRQ_REENABLE*/, &dep->de_hook) != OK)
+	panic("unable to set IRQ policy");
   dep->de_int_pending = FALSE;
   sys_irqenable(&dep->de_hook);
 
@@ -241,7 +242,7 @@ static void do_init(const message * mp)
   confnr = MIN(de_instance, DP_CONF_NR-1);
 
   dcp = &dp_conf[confnr];
-  strcpy(dep->de_name, DevName);
+  strlcpy(dep->de_name, DevName, sizeof(dep->de_name));
   dep->de_name[4] = '0' + de_instance;
 
   if (dep->de_mode == DEM_DISABLED) {
@@ -432,7 +433,7 @@ static void do_getstat_s(const message * mp)
   if (dep->de_mode == DEM_ENABLED) (*dep->de_getstatsf) (dep);
   if ((rc = sys_safecopyto(mp->m_source, mp->DL_GRANT, 0,
 			(vir_bytes)&dep->de_stat,
-			(vir_bytes) sizeof(dep->de_stat), 0)) != OK)
+			(vir_bytes) sizeof(dep->de_stat))) != OK)
         panic(CopyErrMsg, rc);
 
   reply_mess.m_type = DL_STAT_REPLY;

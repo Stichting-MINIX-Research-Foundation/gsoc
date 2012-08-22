@@ -3,7 +3,7 @@
  *
  * The parameters for this kernel call are:
  *    m5_i1:	CP_SRC_PROC_NR	(process number)
- *    m5_s1:	CP_SRC_SPACE	(segment where address is: T, D, or S)
+ *    m5_s1:	UMAP_SEG	(segment where address is: T, D, or S)
  *    m5_l1:	CP_SRC_ADDR	(virtual address)
  *    m5_i2:	CP_DST_ENDPT	(process number of grantee to check access for)
  *    m5_l2:	CP_DST_ADDR	(returns physical address)
@@ -26,20 +26,19 @@
 int do_umap_remote(struct proc * caller, message * m_ptr)
 {
 /* Map virtual address to physical, for non-kernel processes. */
-  int seg_type = m_ptr->CP_SRC_SPACE & SEGMENT_TYPE;
-  int seg_index = m_ptr->CP_SRC_SPACE & SEGMENT_INDEX;
+  int seg_type = m_ptr->UMAP_SEG & SEGMENT_TYPE;
+  int seg_index = m_ptr->UMAP_SEG & SEGMENT_INDEX;
   vir_bytes offset = m_ptr->CP_SRC_ADDR;
   int count = m_ptr->CP_NR_BYTES;
   int endpt = (int) m_ptr->CP_SRC_ENDPT;
   endpoint_t grantee = (endpoint_t) m_ptr->CP_DST_ENDPT;
   int proc_nr, proc_nr_grantee;
-  int naughty = 0;
   phys_bytes phys_addr = 0, lin_addr = 0;
   struct proc *targetpr;
 
   /* Verify process number. */
   if (endpt == SELF)
-	proc_nr = _ENDPOINT_P(caller->p_endpoint);
+	okendpt(caller->p_endpoint, &proc_nr);
   else
 	if (! isokendpt(endpt, &proc_nr))
 		return(EINVAL);
@@ -57,11 +56,6 @@ int do_umap_remote(struct proc * caller, message * m_ptr)
 
   /* See which mapping should be made. */
   switch(seg_type) {
-  case LOCAL_SEG:
-      phys_addr = lin_addr = umap_local(targetpr, seg_index, offset, count);
-      if(!lin_addr) return EFAULT;
-      naughty = 1;
-      break;
   case LOCAL_VM_SEG:
     if(seg_index == MEM_GRANT) {
 	vir_bytes newoffset;
@@ -84,11 +78,11 @@ int do_umap_remote(struct proc * caller, message * m_ptr)
 	/* New lookup. */
 	offset = newoffset;
 	targetpr = proc_addr(new_proc_nr);
-	seg_index = D;
+	seg_index = VIR_ADDR;
       }
 
-      if(seg_index == T || seg_index == D || seg_index == S) {
-        phys_addr = lin_addr = umap_local(targetpr, seg_index, offset, count);
+      if(seg_index == VIR_ADDR) {
+        phys_addr = lin_addr = offset;
       } else {
 	printf("SYSTEM: bogus seg type 0x%lx\n", seg_index);
 	return EFAULT;
@@ -115,7 +109,7 @@ int do_umap_remote(struct proc * caller, message * m_ptr)
   }
 
   m_ptr->CP_DST_ADDR = phys_addr;
-  if(naughty || phys_addr == 0) {
+  if(phys_addr == 0) {
 	  printf("kernel: umap 0x%x done by %d / %s, pc 0x%lx, 0x%lx -> 0x%lx\n",
 		seg_type, caller->p_endpoint, caller->p_name,
 		caller->p_reg.pc, offset, phys_addr);

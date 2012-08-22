@@ -31,10 +31,8 @@
  *   Sep 30, 2004   source code documentation updated  (Jorrit N. Herder)
  */
 
-#include "debug.h"
 #include "kernel.h"
 #include "system.h"
-#include "proc.h"
 #include "vm.h"
 #include "kernel/clock.h"
 #include <stdlib.h>
@@ -81,8 +79,7 @@ static void kernel_call_finish(struct proc * caller, message *msg, int result)
 #if DEBUG_IPC_HOOK
 	hook_ipc_msgkresult(msg, caller);
 #endif
-		  if (copy_msg_to_user(caller, msg,
-				  (message *)caller->p_delivermsg_vir)) {
+		  if (copy_msg_to_user(msg, (message *)caller->p_delivermsg_vir)) {
 			  printf("WARNING wrong user pointer 0x%08x from "
 					  "process %s / %d\n",
 					  caller->p_delivermsg_vir,
@@ -146,7 +143,7 @@ void kernel_call(message *m_user, struct proc * caller)
    * into the kernel or was already set in switch_to_user() before we resume
    * execution of an interrupted kernel call
    */
-  if (copy_msg_from_user(caller, m_user, &msg) == 0) {
+  if (copy_msg_from_user(m_user, &msg) == 0) {
 	  msg.m_source = caller->p_endpoint;
 	  result = kernel_call_dispatch(caller, &msg);
   }
@@ -216,7 +213,6 @@ void system_init(void)
   map(SYS_VDEVIO, do_vdevio);  		/* vector with devio requests */ 
 
   /* Memory management. */
-  map(SYS_NEWMAP, do_newmap);		/* set up a process memory map */
   map(SYS_MEMSET, do_memset);		/* write char to memory area */
   map(SYS_VMCTL, do_vmctl);		/* various VM process settings */
 
@@ -252,7 +248,7 @@ void system_init(void)
   map(SYS_PROFBUF, do_profbuf);        /* announce locations to kernel */
 
   /* i386-specific. */
-#if _MINIX_CHIP == _CHIP_INTEL
+#if defined(__i386__)
   map(SYS_READBIOS, do_readbios);	/* read from BIOS locations */
   map(SYS_IOPENABLE, do_iopenable); 	/* Enable I/O */
   map(SYS_SDEVIO, do_sdevio);		/* phys_insb, _insw, _outsb, _outsw */
@@ -366,13 +362,16 @@ int send_sig(endpoint_t ep, int sig_nr)
  * send a notification with source SYSTEM.
  */ 
   register struct proc *rp;
+  struct priv *priv;
   int proc_nr;
 
   if(!isokendpt(ep, &proc_nr) || isemptyn(proc_nr))
 	return EINVAL;
 
   rp = proc_addr(proc_nr);
-  sigaddset(&priv(rp)->s_sig_pending, sig_nr);
+  priv = priv(rp);
+  if(!priv) return ENOENT;
+  sigaddset(&priv->s_sig_pending, sig_nr);
   mini_notify(proc_addr(SYSTEM), rp->p_endpoint);
 
   return OK;

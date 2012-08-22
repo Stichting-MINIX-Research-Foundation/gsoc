@@ -114,16 +114,9 @@ long magic;
   }
 
   /* Check CPU */
-#if (CHIP == INTEL)
-#if (_WORD_SIZE == 4)
+#if defined(__i386__)
   if (hdr->a_cpu != A_I80386)
-#else
-  if (hdr->a_cpu != A_I8086)
 #endif
-#endif 
-#if (CHIP == M68000)
-  if (hdr->a_cpu != A_M68K)
-#endif 
   {
  	Printf("mdb: invalid cpu in exec header - %04x\n",
 	hdr->a_cpu);
@@ -216,11 +209,7 @@ int allflag;
 					schar += 'A' - 'a';
 				outbyte( schar );
 				outspace();
-#if (_WORD_SIZE == 2)
-				outh16( (u16_t) sp->n_value );
-#else
 				outh32( sp->n_value );
-#endif
 				outbyte('\n');
 			}
 		}
@@ -463,11 +452,7 @@ char *cmd;
 	     for ( ; s <= send; ++s ) outspace();
 	     outbyte( schar );
 	     outspace();
-#if (_WORD_SIZE == 2)
-	     outh16( (u16_t) sp->n_value );
-#else
 	     outh32( sp->n_value );
-#endif
 	     outbyte('\n');
 	}
 }

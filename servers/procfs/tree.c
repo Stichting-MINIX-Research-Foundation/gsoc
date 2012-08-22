@@ -282,7 +282,7 @@ static void construct_pid_dirs(void)
 			pid = mproc[i - NR_TASKS].mp_pid;
 
 		/* Add the entry for the process slot. */
-		sprintf(name, "%d", pid);
+		snprintf(name, PNAME_MAX + 1, "%d", pid);
 
 		make_stat(&stat, i, NO_INDEX);
 
@@ -411,14 +411,14 @@ static void pid_read(struct inode *node)
 /*===========================================================================*
  *				pid_link				     *
  *===========================================================================*/
-static int pid_link(struct inode *UNUSED(node), char *ptr, int UNUSED(max))
+static int pid_link(struct inode *UNUSED(node), char *ptr, int max)
 {
 	/* The contents of a symbolic link in a PID directory are requested.
 	 * This function is a placeholder for future use.
 	 */
 
 	/* Nothing yet. */
-	strcpy(ptr, "");
+	strlcpy(ptr, "", max);
 
 	return OK;
 }

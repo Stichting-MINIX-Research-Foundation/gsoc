@@ -89,9 +89,6 @@
 #define ROOT_SYS_PROC_NR  RS_PROC_NR
 #define ROOT_USR_PROC_NR  INIT_PROC_NR
 
-/* Number of processes contained in the system image. */
-#define NR_BOOT_PROCS 	(NR_TASKS + LAST_SPECIAL_PROC_NR + 1)
-
 /*===========================================================================*
  *                	   Kernel notification types                         *
  *===========================================================================*/
@@ -307,7 +304,6 @@
 #  define SYS_SIGSEND    (KERNEL_CALL + 9)	/* sys_sigsend() */
 #  define SYS_SIGRETURN  (KERNEL_CALL + 10)	/* sys_sigreturn() */
 
-#  define SYS_NEWMAP     (KERNEL_CALL + 11)	/* sys_newmap() */
 #  define SYS_MEMSET     (KERNEL_CALL + 13)	/* sys_memset() */
 
 #  define SYS_UMAP       (KERNEL_CALL + 14)	/* sys_umap() */
@@ -432,13 +428,17 @@
 #define IOP_ENDPT	m2_l1	/* target endpoint */
 
 /* Field names for _UMAP, _VIRCOPY, _PHYSCOPY. */
-#define CP_SRC_SPACE 	m5_s1	/* T or D space (stack is also D) */
 #define CP_SRC_ENDPT	m5_i1	/* process to copy from */
 #define CP_SRC_ADDR	m5_l1	/* address where data come from */
-#define CP_DST_SPACE	m5_s2	/* T or D space (stack is also D) */
 #define CP_DST_ENDPT	m5_i2	/* process to copy to */
 #define CP_DST_ADDR	m5_l2	/* address where data go to */
 #define CP_NR_BYTES	m5_l3	/* number of bytes to copy */
+
+#define UMAP_SEG 	m5_s1
+
+/* only used for backwards compatability */
+#define CP_SRC_SPACE_OBSOLETE 	m5_s1	/* T or D space (stack is also D) */
+#define CP_DST_SPACE_OBSOLETE	m5_s2	/* T or D space (stack is also D) */
 
 /* Field names for SYS_VUMAP. */
 #define VUMAP_ENDPT	m10_i1	/* grant owner, or SELF for local addresses */
@@ -459,7 +459,6 @@
 #   define GET_MONPARAMS   4	/* get monitor parameters */
 #   define GET_KENV	   5	/* get kernel environment string */
 #   define GET_IRQHOOKS	   6	/* get the IRQ table */
-#   define GET_KMESSAGES   7	/* get kernel messages */
 #   define GET_PRIVTAB	   8	/* get kernel privileges table */
 #   define GET_KADDRESSES  9	/* get various kernel addresses */
 #   define GET_SCHEDINFO  10	/* get scheduling queues */
@@ -529,16 +528,13 @@
 #define SIG_MAP        m2_l1	/* used by kernel to pass signal bit map */
 #define SIG_CTXT_PTR   m2_p1	/* pointer to info to restore signal context */
 
-/* Field names for SYS_FORK, _EXEC, _EXIT, _NEWMAP, GETMCONTEXT, SETMCONTEXT.*/
+/* Field names for SYS_FORK, _EXEC, _EXIT, GETMCONTEXT, SETMCONTEXT.*/
 #define PR_ENDPT        m1_i1	/* indicates a process */
 #define PR_PRIORITY     m1_i2	/* process priority */
 #define PR_SLOT         m1_i2	/* indicates a process slot */
 #define PR_STACK_PTR    m1_p1	/* used for stack ptr in sys_exec, sys_getsp */
 #define PR_NAME_PTR     m1_p2	/* tells where program name is for dmp */
 #define PR_IP_PTR       m1_p3	/* initial value for ip after exec */
-#define PR_MEM_PTR      m1_p1	/* tells where memory map is for sys_newmap
-				 * and sys_fork
-				 */
 #define PR_FORK_FLAGS	m1_i3	/* optional flags for fork operation */
 #define PR_FORK_MSGADDR m1_p1	/* reply message address of forked child */
 #define PR_CTX_PTR	m1_p1	/* pointer to mcontext_t structure */
@@ -559,7 +555,7 @@
 
 /* Field names for SYS_SAFECOPY* */
 #define SCP_FROM_TO	m2_i1	/* from/to whom? */
-#define SCP_SEG		m2_i2	/* my own segment */
+#define SCP_SEG_OBSOLETE m2_i2	/* my own segment */
 #define SCP_GID		m2_i3	/* grant id */
 #define SCP_OFFSET	m2_l1	/* offset within grant */
 #define	SCP_ADDRESS	m2_p1	/* my own address */
@@ -573,10 +569,11 @@
 #define SMAP_EP		m2_i1
 #define SMAP_GID	m2_i2
 #define SMAP_OFFSET	m2_i3
-#define SMAP_SEG	m2_p1
 #define SMAP_ADDRESS	m2_l1
 #define SMAP_BYTES	m2_l2
 #define SMAP_FLAG	m2_s1
+
+#define SMAP_SEG_OBSOLETE	m2_p1
 
 /* Field names for SYS_SPROF, _CPROF, _PROFBUF. */
 #define PROF_ACTION    m7_i1    /* start/stop/reset/get */
@@ -613,17 +610,17 @@
 #define SVMCTL_MAP_PHYS_LEN	m2_l2
 
 #define VMMF_UNCACHED		(1L << 0)
+#define VMMF_USER		(1L << 1)
+#define VMMF_WRITE		(1L << 2)
+#define VMMF_GLO		(1L << 3)
 
 /* Values for SVMCTL_PARAM. */
 #define VMCTL_CLEAR_PAGEFAULT	12
-#define VMCTL_I386_GETCR3	13
-#define VMCTL_MEMREQ_GET	14
+#define VMCTL_GET_PDBR		13
+#define VMCTL_MEMREQ_GET 	14
 #define VMCTL_MEMREQ_REPLY	15
-#define VMCTL_INCSP		16
 #define VMCTL_NOPAGEZERO	18
 #define VMCTL_I386_KERNELLIMIT	19
-#define VMCTL_I386_FREEPDE	23
-#define VMCTL_ENABLE_PAGING	24
 #define VMCTL_I386_INVLPG	25
 #define VMCTL_FLUSHTLB		26
 #define VMCTL_KERN_PHYSMAP	27
@@ -631,6 +628,7 @@
 #define VMCTL_SETADDRSPACE	29
 #define VMCTL_VMINHIBIT_SET	30
 #define VMCTL_VMINHIBIT_CLEAR	31
+#define VMCTL_CLEARMAPCACHE	32
 
 /* Codes and field names for SYS_SYSCTL. */
 #define SYSCTL_CODE		m1_i1	/* SYSCTL_CODE_* below */
@@ -825,7 +823,7 @@
 
 /* Parameters for the EXEC_NEWMEM call */
 #define EXC_NM_PROC	m1_i1		/* process that needs new map */
-#define EXC_NM_PTR	m1_p1		/* parameters in struct exec_newmem */
+#define EXC_NM_PTR	m1_p1		/* parameters in struct exec_info */
 /* Results:
  * the status will be in m_type.
  * the top of the stack will be in m1_i1.

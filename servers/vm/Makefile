@@ -3,19 +3,19 @@
 
 LLVM_CONF=
 PROG=	vm
-SRCS=	main.c alloc.c utility.c exec.c exit.c fork.c break.c \
+SRCS=	main.c alloc.c utility.c exit.c fork.c break.c \
 	signal.c mmap.c slaballoc.c region.c pagefaults.c addravl.c \
 	physravl.c rs.c queryexit.c yieldedavl.c regionavl.c
 
 DPADD+=	${LIBSYS}
-LDADD+=	-lsys
+LDADD+=	-lsys -lexec
 
 MAN=
 
 BINDIR?= /usr/sbin
 
-CPPFLAGS+= -I${.CURDIR} -I${.CURDIR}/arch/${ARCH}
-CPPFLAGS+=	-I${MINIXSRCDIR}
+CPPFLAGS+= -I${.CURDIR} -I${.CURDIR}/arch/${MACHINE_ARCH}
+CPPFLAGS+=	-I${NETBSDSRCDIR}
 
-.include "arch/${ARCH}/Makefile.inc"
+.include "arch/${MACHINE_ARCH}/Makefile.inc"
 .include <minix.bootprog.mk>

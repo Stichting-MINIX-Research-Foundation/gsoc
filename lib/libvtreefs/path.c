@@ -114,7 +114,7 @@ static int go_down(struct inode *parent, char *name, struct inode **child)
 /*===========================================================================*
  *				resolve_link				     *
  *===========================================================================*/
-static int resolve_link(struct inode *node, char *pptr, char *tail)
+static int resolve_link(struct inode *node, char pptr[PATH_MAX], char *tail)
 {
 	/* Given a symbolic link, resolve and return the contents of the link.
 	 */
@@ -135,9 +135,9 @@ static int resolve_link(struct inode *node, char *pptr, char *tail)
 	if (len + strlen(tail) >= sizeof(path))
 		return ENAMETOOLONG;
 
-	strcat(path, tail);
+	strlcat(path, tail, sizeof(path));
 
-	strcpy(pptr, path);
+	strlcpy(pptr, path, PATH_MAX);
 
 	return OK;
 }
@@ -166,7 +166,7 @@ int fs_lookup(void)
 		return EINVAL;
 
 	r = sys_safecopyfrom(fs_m_in.m_source, fs_m_in.REQ_GRANT, 0,
-		(vir_bytes) path, (phys_bytes) len, D);
+		(vir_bytes) path, (phys_bytes) len);
 	if (r != OK) return r;
 
 	if (path[len-1] != 0) return EINVAL;
@@ -176,7 +176,7 @@ int fs_lookup(void)
 		assert(fs_m_in.REQ_UCRED_SIZE == sizeof(ucred));
 
 		r = sys_safecopyfrom(fs_m_in.m_source, fs_m_in.REQ_GRANT2, 0,
-			(vir_bytes) &ucred, fs_m_in.REQ_UCRED_SIZE, D);
+			(vir_bytes) &ucred, fs_m_in.REQ_UCRED_SIZE);
 
 		if (r != OK)
 			return r;
@@ -286,7 +286,7 @@ int fs_lookup(void)
 		if (symloop > 0 && (r == ELEAVEMOUNT || r == ESYMLINK)) {
 			r2 = sys_safecopyto(fs_m_in.m_source,
 				fs_m_in.REQ_GRANT, 0, (vir_bytes) path,
-				strlen(path) + 1, D);
+				strlen(path) + 1);
 
 			if (r2 != OK)
 				r = r2;

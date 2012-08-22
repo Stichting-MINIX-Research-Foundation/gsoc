@@ -21,8 +21,7 @@ void flushall(dev_t dev);
 struct buf *get_block(dev_t dev, block_t block,int only_search);
 void invalidate(dev_t device);
 void put_block(struct buf *bp, int block_type);
-void set_blocksize(unsigned int blocksize, u32_t blocks, u32_t
-	freeblocks, dev_t major);
+void set_blocksize(struct super_block *sp);
 void rw_scattered(dev_t dev, struct buf **bufq, int bufqsize, int
 	rw_flag);
 
@@ -114,7 +113,7 @@ void sanitycheck(char *file, int line);
 int ansi_strcmp(register const char* ansi_s, register const char *s2,
 	register size_t ansi_s_length);
 bit_t setbit(bitchunk_t *bitmap, bit_t max_bits, unsigned int word);
-bit_t setbyte(bitchunk_t *bitmap, bit_t max_bits, unsigned int word);
+bit_t setbyte(bitchunk_t *bitmap, bit_t max_bits);
 int unsetbit(bitchunk_t *bitmap, bit_t bit);
 
 /* write.c */

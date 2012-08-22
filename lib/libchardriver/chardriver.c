@@ -131,6 +131,8 @@ static void async_reply(message *mess, int r)
   if (r == ERESTART)
 	return;
 
+  memset(&reply_mess, 0, sizeof(reply_mess));
+
   switch (mess->m_type) {
   case DEV_OPEN:
 	reply_mess.m_type = DEV_OPEN_REPL;
@@ -280,7 +282,7 @@ static int do_vrdwt(struct chardriver *cdp, message *mp)
   iovec_size = (phys_bytes) (nr_req * sizeof(iovec[0]));
 
   if (OK != sys_safecopyfrom(mp->m_source, (vir_bytes) mp->IO_GRANT,
-		0, (vir_bytes) iovec, iovec_size, D)) {
+		0, (vir_bytes) iovec, iovec_size)) {
 	printf("bad I/O vector by: %d\n", mp->m_source);
 	return(EINVAL);
   }
@@ -296,7 +298,7 @@ static int do_vrdwt(struct chardriver *cdp, message *mp)
 
   /* Copy the I/O vector back to the caller. */
   if (OK != sys_safecopyto(mp->m_source, (vir_bytes) mp->IO_GRANT,
-		0, (vir_bytes) iovec, iovec_size, D)) {
+		0, (vir_bytes) iovec, iovec_size)) {
 	printf("couldn't return I/O vector: %d\n", mp->m_source);
 	return(EINVAL);
   }

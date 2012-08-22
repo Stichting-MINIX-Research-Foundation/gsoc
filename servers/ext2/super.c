@@ -88,7 +88,7 @@ register struct super_block *sp; /* pointer to a superblock */
 
   STATICINIT(ondisk_superblock, 1);
 
-  if (!sp || !ondisk_superblock)
+  if (!ondisk_superblock)
 	panic("can't allocate memory for super_block buffers");
 
   assert(_MIN_BLOCK_SIZE <= sizeof(*ondisk_superblock));
@@ -109,8 +109,8 @@ register struct super_block *sp; /* pointer to a superblock */
 
   if (sp->s_block_size < _MIN_BLOCK_SIZE
       || sp->s_block_size >_MAX_BLOCK_SIZE) {
+	printf("data block size (%u) is invalid\n", sp->s_block_size);
 	return(EINVAL);
-	printf("data block size is too large\n");
   }
 
   if ((sp->s_block_size % 512) != 0)

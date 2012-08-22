@@ -34,7 +34,7 @@ int fs_lookup() {
 
   /* Copy the pathname and set up caller's user and group id */
   r = sys_safecopyfrom(VFS_PROC_NR, grant, 0, (vir_bytes) user_path, 
-		       (phys_bytes) len, D);
+		       (phys_bytes) len);
   if (r != OK) {
 	printf("ISOFS %s:%d sys_safecopyfrom failed: %d\n",
 		__FILE__, __LINE__, r);
@@ -223,7 +223,7 @@ size_t *offsetp;
       while(cp[0] == '/')
 	cp++;
       if (cp[0] == '\0') {
-	strcpy(string, ".");
+	strlcpy(string, ".", NAME_MAX + 1);
 	ncp = cp;
       }
       else
@@ -360,7 +360,7 @@ char string[NAME_MAX+1];	/* component extracted from 'old_name' */
   if (len == 0)
   {
 	/* Return "." */
-	strcpy(string, ".");
+	strlcpy(string, ".", NAME_MAX + 1);
   }
   else
   {

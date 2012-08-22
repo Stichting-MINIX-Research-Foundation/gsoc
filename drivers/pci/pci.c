@@ -12,6 +12,7 @@ Created:	Jan 2000 by Philip Homburg <philip@cs.vu.nl>
 #include <minix/com.h>
 #include <minix/ds.h>
 #include <minix/syslib.h>
+#include <minix/param.h>
 
 #include "pci.h"
 #include <machine/pci_amd.h>
@@ -120,7 +121,7 @@ static char *pci_vid_name(u16_t vid);
 static char *pci_baseclass_name(u8_t baseclass);
 static char *pci_subclass_name(u8_t baseclass, u8_t subclass, u8_t
 	infclass);
-static void ntostr(unsigned n, char **str, char *end);
+static void ntostr(unsigned n, char **str, const char *end);
 
 static u8_t pci_attr_r8_u(int devind, int port);
 static u32_t pci_attr_r32_u(int devind, int port);
@@ -178,7 +179,7 @@ int sef_cb_init_fresh(int type, sef_init_info_t *info)
 
 	/* Map all the services in the boot image. */
 	if((r = sys_safecopyfrom(RS_PROC_NR, info->rproctab_gid, 0,
-		(vir_bytes) rprocpub, sizeof(rprocpub), S)) != OK) {
+		(vir_bytes) rprocpub, sizeof(rprocpub))) != OK) {
 		panic("sys_safecopyfrom failed: %d", r);
 	}
 	for(i=0;i < NR_BOOT_PROCS;i++) {
@@ -363,7 +364,7 @@ struct rs_pci *aclp;
 	int i, r;
 	int ilr;
 	struct io_range ior;
-	struct mem_range mr;
+	struct minix_mem_range mr;
 
 	if (devind < 0 || devind >= nr_pcidev)
 	{
@@ -1448,38 +1449,16 @@ static void complete_bridges()
  *===========================================================================*/
 static void complete_bars(void)
 {
-	int i, j, r, bar_nr, reg;
+	int i, j, bar_nr, reg;
 	u32_t memgap_low, memgap_high, iogap_low, iogap_high, io_high,
 		base, size, v32, diff1, diff2;
-	char *cp, *next;
-	char memstr[256];
+	kinfo_t kinfo;
 
-	r= env_get_param("memory", memstr, sizeof(memstr));
-	if (r != OK)
-		panic("env_get_param failed: %d", r);
-	
+	if(OK != sys_getkinfo(&kinfo))
+		panic("can't get kinfo");
+
 	/* Set memgap_low to just above physical memory */
-	memgap_low= 0;
-	cp= memstr;
-	while (*cp != '\0')
-	{
-		base= strtoul(cp, &next, 16);
-		if (!(*next) || next == cp || *next != ':')
-			goto bad_mem_string;
-		cp= next+1;
-		size= strtoul(cp, &next, 16);
-		if (next == cp || (*next != ',' && *next != '\0'))
-		if (!*next)
-			goto bad_mem_string;
-		if (base+size > memgap_low)
-			memgap_low= base+size;
-
-		if (*next)
-			cp= next+1;
-		else
-			break;
-	}
-
+	memgap_low= kinfo.mem_high_phys;
 	memgap_high= 0xfe000000;	/* Leave space for the CPU (APIC) */
 
 	if (debug)
@@ -1661,10 +1640,6 @@ static void complete_bars(void)
 		}
 	}
 	return;
-
-bad_mem_string:
-	printf("PCI: bad memory environment string '%s'\n", memstr);
-	panic(NULL);
 }
 
 /*===========================================================================*
@@ -2303,7 +2278,7 @@ static char *pci_subclass_name(u8_t baseclass, u8_t subclass, u8_t infclass)
 static void ntostr(n, str, end)
 unsigned n;
 char **str;
-char *end;
+const char *end;
 {
 	char tmpstr[20];
 	int i;
@@ -2331,7 +2306,7 @@ char *end;
 		(*str)++;
 	}
 	if (*str == end)	
-		end[-1]= '\0';
+		(*str)[-1]= '\0';
 	else
 		**str= '\0';
 }

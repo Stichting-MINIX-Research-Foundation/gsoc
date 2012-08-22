@@ -140,7 +140,7 @@ static int get_read_vp(struct vfs_exec_info *execi,
 		char *cp = strrchr(fullpath, '/');
 		if(cp) cp++;
 		else cp = fullpath;
-		strncpy(execi->args.progname, cp, sizeof(execi->args.progname)-1);
+		strlcpy(execi->args.progname, cp, sizeof(execi->args.progname));
 		execi->args.progname[sizeof(execi->args.progname)-1] = '\0';
 	}
 
@@ -216,6 +216,7 @@ int pm_exec(endpoint_t proc_e, vir_bytes path, size_t path_len,
 
   /* passed from exec() libc code */
   execi.userflags = user_exec_flags;
+  execi.args.stack_high = kinfo.user_sp;
   execi.args.stack_size = DEFAULT_STACK_LIMIT;
 
   okendpt(proc_e, &slot);
@@ -242,7 +243,7 @@ int pm_exec(endpoint_t proc_e, vir_bytes path, size_t path_len,
 
   /* Get the exec file name. */
   FAILCHECK(fetch_name(path, path_len, fullpath));
-  strcpy(finalexec, fullpath);
+  strlcpy(finalexec, fullpath, PATH_MAX);
 
   /* Get_read_vp will return an opened vn in execi.
    * if necessary it releases the existing vp so we can
@@ -260,9 +261,9 @@ int pm_exec(endpoint_t proc_e, vir_bytes path, size_t path_len,
 	 * args to stack and retrieve the new binary
 	 * name into fullpath.
 	 */
-  	FAILCHECK(fetch_name(path, path_len, fullpath));
+	FAILCHECK(fetch_name(path, path_len, fullpath));
 	FAILCHECK(patch_stack(execi.vp, mbuf, &frame_len, fullpath));
-  	strcpy(finalexec, fullpath);
+	strlcpy(finalexec, fullpath, PATH_MAX);
 	Get_read_vp(execi, fullpath, 1, 0, &resolve, fp);
   }
 
@@ -285,14 +286,19 @@ int pm_exec(endpoint_t proc_e, vir_bytes path, size_t path_len,
 		FAILCHECK(r);
 	}
 
+	/* ld.so is linked at 0, but it can relocate itself; we
+	 * want it higher to trap NULL pointer dereferences. 
+	 */
+	execi.args.load_offset = 0x10000;
+
 	/* Remember it */
-	strcpy(execi.execname, finalexec);
+	strlcpy(execi.execname, finalexec, PATH_MAX);
 
 	/* The executable we need to execute first (loader)
 	 * is in elf_interpreter, and has to be in fullpath to
 	 * be looked up
 	 */
-	strcpy(fullpath, elf_interpreter);
+	strlcpy(fullpath, elf_interpreter, PATH_MAX);
 	Get_read_vp(execi, fullpath, 0, 0, &resolve, fp);
   }
 
@@ -343,7 +349,7 @@ int pm_exec(endpoint_t proc_e, vir_bytes path, size_t path_len,
   }
 
   /* Remember the new name of the process */
-  strcpy(rfp->fp_name, execi.args.progname);
+  strlcpy(rfp->fp_name, execi.args.progname, PROC_NAME_LEN);
 
 pm_execfinal:
   if (execi.vp != NULL) {
@@ -439,7 +445,7 @@ static int stack_prepare_elf(struct vfs_exec_info *execi, char *frame, size_t *f
 
 		/* Empty space starts here; we can put the name here. */
 		spacestart = (char *) a;
-		strcpy(spacestart, execi->execname);
+		strlcpy(spacestart, execi->execname, PATH_MAX);
 
 		/* What will the address of the string for the user be */
 		userp = *newsp + (spacestart-frame);
@@ -584,7 +590,7 @@ int replace
   /* Reposition the strings by offset bytes */
   memmove(stack + a1 + offset, stack + a1, old_bytes - a1);
 
-  strcpy(stack + a0, arg);	/* Put arg in the new space. */
+  strlcpy(stack + a0, arg, PATH_MAX); /* Put arg in the new space. */
 
   if (!replace) {
 	/* Make space for a new argv[0]. */
@@ -617,15 +623,15 @@ static int read_seg(struct exec_info *execi, off_t off, off_t seg_addr, size_t s
   if (off + seg_bytes > LONG_MAX) return(EIO);
   if ((unsigned long) vp->v_size < off+seg_bytes) return(EIO);
 
-	if ((r = req_readwrite(vp->v_fs_e, vp->v_inode_nr, cvul64(off), READING,
-			 execi->proc_e, (char*)seg_addr, seg_bytes,
-			 &new_pos, &cum_io)) != OK) {
-	    printf("VFS: read_seg: req_readwrite failed (data)\n");
-	    return(r);
-	}
+  if ((r = req_readwrite(vp->v_fs_e, vp->v_inode_nr, cvul64(off), READING,
+		 execi->proc_e, (char*)seg_addr, seg_bytes,
+		 &new_pos, &cum_io)) != OK) {
+    printf("VFS: read_seg: req_readwrite failed (data)\n");
+    return(r);
+  }
 
-	if (r == OK && cum_io != seg_bytes)
-		printf("VFS: read_seg segment has not been read properly\n");
+  if (r == OK && cum_io != seg_bytes)
+	printf("VFS: read_seg segment has not been read properly\n");
 
 	return(r);
 }

@@ -4,9 +4,9 @@ NOOBJ=		# defined
 
 INCSDIR=	/usr/include/minix
 
-INCS+= dirent.h paths.h types.h fault.h
+INCS+= dirent.h paths.h types.h param.h fault.h
 
-.include "${MINIXSRCDIR}/common/include/sys/Makefile.mount.inc"
-.include "${MINIXSRCDIR}/common/include/Makefile.termios.inc"
+.include "${NETBSDSRCDIR}/common/include/sys/Makefile.mount.inc"
+.include "${NETBSDSRCDIR}/common/include/Makefile.termios.inc"
 
 .include <bsd.kinc.mk>

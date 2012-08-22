@@ -138,6 +138,7 @@ int do_dup()
 		unlock_filp(f);		/* or it might deadlock on do_close */
 		(void) close_fd(fp, rfd2);	/* cannot fail */
 		f = get_filp(rfd, VNODE_READ); /* lock old_fd again */
+		if (f == NULL) return(err_code);
 	}
   }
 
@@ -661,7 +662,8 @@ int do_svrctl()
 				r = OK;
 			} else if (!strcmp(search_key, "active_threads")) {
 				int active = NR_WTHREADS - worker_available();
-				sprintf(small_buf, "%d", active);
+				snprintf(small_buf, sizeof(small_buf) - 1,
+					 "%d", active);
 				sysgetenv.vallen = strlen(small_buf);
 				r = OK;
 			}
@@ -717,7 +719,8 @@ int pm_dumpcore(endpoint_t proc_e, int csig, vir_bytes exe_name)
   unlock_filp(f);
   (void) close_fd(fp, core_fd);	/* ignore failure, we're exiting anyway */
 
-  free_proc(fp, FP_EXITING);
+  if(csig)
+	  free_proc(fp, FP_EXITING);
   return(OK);
 }
 

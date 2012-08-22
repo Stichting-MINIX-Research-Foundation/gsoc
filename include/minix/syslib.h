@@ -37,9 +37,8 @@ int sys_abort(int how, ...);
 int sys_enable_iop(endpoint_t proc_ep);
 int sys_exec(endpoint_t proc_ep, char *ptr, char *aout, vir_bytes
 	initpc);
-int sys_fork(endpoint_t parent, endpoint_t child, endpoint_t *, struct
-	mem_map *ptr, u32_t vm, vir_bytes *);
-int sys_newmap(endpoint_t proc_ep, struct mem_map *ptr);
+int sys_fork(endpoint_t parent, endpoint_t child, endpoint_t *, 
+	u32_t vm, vir_bytes *);
 int sys_clear(endpoint_t proc_ep);
 int sys_exit(void);
 int sys_trace(int req, endpoint_t proc_ep, long addr, long *data_p);
@@ -67,7 +66,7 @@ int sys_vm_setbuf(phys_bytes base, phys_bytes size, phys_bytes high);
 int sys_vm_map(endpoint_t proc_ep, int do_map, phys_bytes base,
 	phys_bytes size, phys_bytes offset);
 int sys_vmctl(endpoint_t who, int param, u32_t value);
-int sys_vmctl_get_cr3_i386(endpoint_t who, u32_t *cr3);
+int sys_vmctl_get_pdbr(endpoint_t who, u32_t *pdbr);
 int sys_vmctl_get_memreq(endpoint_t *who, vir_bytes *mem, vir_bytes
 	*len, int *wrflag, endpoint_t *who_s, vir_bytes *mem_s, endpoint_t *);
 int sys_vmctl_enable_paging(void * data);
@@ -131,26 +130,21 @@ int sys_vtimer(endpoint_t proc_nr, int which, clock_t *newval, clock_t
 int sys_irqctl(int request, int irq_vec, int policy, int *irq_hook_id);
 
 /* Shorthands for sys_vircopy() and sys_physcopy() system calls. */
-#define sys_datacopy(src_proc, src_vir, dst_proc, dst_vir, bytes) \
-	sys_vircopy(src_proc, D, src_vir, dst_proc, D, dst_vir, bytes)
-#define sys_textcopy(src_proc, src_vir, dst_proc, dst_vir, bytes) \
-	sys_vircopy(src_proc, T, src_vir, dst_proc, T, dst_vir, bytes)
-#define sys_stackcopy(src_proc, src_vir, dst_proc, dst_vir, bytes) \
-	sys_vircopy(src_proc, S, src_vir, dst_proc, S, dst_vir, bytes)
-int sys_vircopy(endpoint_t src_proc, int src_s, vir_bytes src_v,
-	endpoint_t dst_proc, int dst_seg, vir_bytes dst_vir, phys_bytes bytes);
+#define sys_datacopy sys_vircopy
+int sys_vircopy(endpoint_t src_proc, vir_bytes src_v,
+	endpoint_t dst_proc, vir_bytes dst_vir, phys_bytes bytes);
 
 #define sys_abscopy(src_phys, dst_phys, bytes) \
-	sys_physcopy(NONE, PHYS_SEG, src_phys, NONE, PHYS_SEG, dst_phys, bytes)
-int sys_physcopy(endpoint_t src_proc, int src_seg, vir_bytes src_vir,
-	endpoint_t dst_proc, int dst_seg, vir_bytes dst_vir, phys_bytes bytes);
+	sys_physcopy(NONE, src_phys, NONE, dst_phys, bytes)
+int sys_physcopy(endpoint_t src_proc, vir_bytes src_vir,
+	endpoint_t dst_proc, vir_bytes dst_vir, phys_bytes bytes);
 
 
 /* Grant-based copy functions. */
 int sys_safecopyfrom(endpoint_t source, cp_grant_id_t grant, vir_bytes
-	grant_offset, vir_bytes my_address, size_t bytes, int my_seg);
+	grant_offset, vir_bytes my_address, size_t bytes);
 int sys_safecopyto(endpoint_t dest, cp_grant_id_t grant, vir_bytes
-	grant_offset, vir_bytes my_address, size_t bytes, int my_seg);
+	grant_offset, vir_bytes my_address, size_t bytes);
 int sys_vsafecopy(struct vscp_vec *copyvec, int elements);
 
 int sys_memset(endpoint_t who, unsigned long pattern,
@@ -158,11 +152,10 @@ int sys_memset(endpoint_t who, unsigned long pattern,
 
 /* Grant-based map functions. */
 int sys_safemap(endpoint_t grantor, cp_grant_id_t grant, vir_bytes
-	grant_offset, vir_bytes my_address, size_t bytes, int my_seg, int
-	writable);
+	grant_offset, vir_bytes my_address, size_t bytes, int writable);
 int sys_saferevmap_gid(cp_grant_id_t grant);
 int sys_saferevmap_addr(vir_bytes addr);
-int sys_safeunmap(int my_seg, vir_bytes my_address);
+int sys_safeunmap(vir_bytes my_address);
 
 int sys_vumap(endpoint_t endpt, struct vumap_vir *vvec,
 	int vcount, size_t offset, int access, struct vumap_phys *pvec,
@@ -175,7 +168,6 @@ int sys_umap_remote(endpoint_t proc_ep, endpoint_t grantee, int seg,
 	vir_bytes vir_addr, vir_bytes bytes, phys_bytes *phys_addr);
 
 /* Shorthands for sys_getinfo() system call. */
-#define sys_getkmessages(dst)	sys_getinfo(GET_KMESSAGES, dst, 0,0,0)
 #define sys_getkinfo(dst)	sys_getinfo(GET_KINFO, dst, 0,0,0)
 #define sys_getloadinfo(dst)	sys_getinfo(GET_LOADINFO, dst, 0,0,0)
 #define sys_getmachine(dst)	sys_getinfo(GET_MACHINE, dst, 0,0,0)

@@ -10,8 +10,6 @@
 #include <minix/syslib.h>
 #include <machine/cmos.h>
 
-#include "kernel/proc.h"
-#include "kernel/glo.h"
 #include "arch_proto.h"
 
 #include <minix/u64.h>
@@ -361,12 +359,15 @@ void ioapic_disable_all(void)
 
 	apic_idt_init(TRUE); /* reset */
 	idt_reload();
-
-	intr_init(INTS_ORIG, 0); /* no auto eoi */
 }
 
 static void ioapic_disable_irq(unsigned irq)
 {
+	if(!(io_apic_irq[irq].ioa)) {
+		printf("ioapic_disable_irq: no ioa set for irq %d!\n", irq);
+		return;
+	}
+
 	assert(io_apic_irq[irq].ioa);
 
 	ioapic_disable_pin(io_apic_irq[irq].ioa->addr, io_apic_irq[irq].pin);
@@ -375,6 +376,11 @@ static void ioapic_disable_irq(unsigned irq)
 
 static void ioapic_enable_irq(unsigned irq)
 {
+	if(!(io_apic_irq[irq].ioa)) {
+		printf("ioapic_enable_irq: no ioa set for irq %d!\n", irq);
+		return;
+	}
+
 	assert(io_apic_irq[irq].ioa);
 
 	ioapic_enable_pin(io_apic_irq[irq].ioa->addr, io_apic_irq[irq].pin);
@@ -588,6 +594,7 @@ static  u32_t lapic_errstatus(void)
 	return lapic_read(LAPIC_ESR);
 }
 
+#ifdef CONFIG_SMP
 static int lapic_disable_in_msr(void)
 {
 	u32_t msr_hi, msr_lo;
@@ -599,6 +606,7 @@ static int lapic_disable_in_msr(void)
 
 	return 1;
 }
+#endif /* CONFIG_SMP */
 
 void lapic_disable(void)
 {
@@ -620,6 +628,7 @@ void lapic_disable(void)
 		return;
 	}
 
+#ifdef CONFIG_SMP
 	val = lapic_read(LAPIC_LINT0) & 0xFFFE58FF;
 	val |= APIC_ICR_INT_MASK;
 	lapic_write (LAPIC_LINT0, val);
@@ -633,6 +642,7 @@ void lapic_disable(void)
 	lapic_write(LAPIC_SIVR, val);
 
 	lapic_disable_in_msr();
+#endif /* CONFIG_SMP */
 }
 
 static int lapic_enable_in_msr(void)
@@ -649,12 +659,12 @@ static int lapic_enable_in_msr(void)
 	 * update it
 	 */
 	addr = (msr_lo >> 12) | ((msr_hi & 0xf) << 20);
-	if (phys2vir(addr) != (lapic_addr >> 12)) {
+	if (addr != (lapic_addr >> 12)) {
 		if (msr_hi & 0xf) {
 			printf("ERROR : APIC address needs more then 32 bits\n");
 			return 0;
 		}
-		lapic_addr = phys2vir(msr_lo & ~((1 << 12) - 1));
+		lapic_addr = msr_lo & ~((1 << 12) - 1);
 	}
 #endif
 
@@ -848,7 +858,7 @@ static void lapic_set_dummy_handlers(void)
 	handler += vect * LAPIC_INTR_DUMMY_HANDLER_SIZE;
 	for(; handler < &lapic_intr_dummy_handles_end;
 			handler += LAPIC_INTR_DUMMY_HANDLER_SIZE) {
-		int_gate(vect++, (vir_bytes) handler,
+		int_gate_idt(vect++, (vir_bytes) handler,
 				PRESENT | INT_GATE_TYPE |
 				(INTR_PRIVILEGE << DPL_SHIFT));
 	}
@@ -862,13 +872,15 @@ void apic_idt_init(const int reset)
 
 	/* Set up idt tables for smp mode.
 	 */
-	int is_bsp = is_boot_apic(apicid());
+	int is_bsp;
 
 	if (reset) {
-		idt_copy_vectors(gate_table_pic);
+		idt_copy_vectors_pic();
 		idt_copy_vectors(gate_table_common);
 		return;
 	}
+
+	is_bsp = is_boot_apic(apicid());
 
 #ifdef APIC_DEBUG
 	if (is_bsp)
@@ -880,7 +892,7 @@ void apic_idt_init(const int reset)
 	if (ioapic_enabled)
 		idt_copy_vectors(gate_table_ioapic);
 	else
-		idt_copy_vectors(gate_table_pic);
+		idt_copy_vectors_pic();
 
 	idt_copy_vectors(gate_table_common);
 
@@ -899,7 +911,7 @@ void apic_idt_init(const int reset)
 	if (is_bsp) {
 		BOOT_VERBOSE(printf("Initiating APIC timer handler\n"));
 		/* register the timer interrupt handler for this CPU */
-		int_gate(APIC_TIMER_INT_VECTOR, (vir_bytes) lapic_timer_int_handler,
+		int_gate_idt(APIC_TIMER_INT_VECTOR, (vir_bytes) lapic_timer_int_handler,
 				PRESENT | INT_GATE_TYPE | (INTR_PRIVILEGE << DPL_SHIFT));
 	}
 
@@ -915,16 +927,17 @@ static int acpi_get_ioapics(struct io_apic * ioa, unsigned * nioa, unsigned max)
 		if (acpi_ioa == NULL)
 			break;
 
+		assert(acpi_ioa->address);
+
 		ioa[n].id = acpi_ioa->id;
-		ioa[n].addr = phys2vir(acpi_ioa->address);
+		ioa[n].addr = acpi_ioa->address;
 		ioa[n].paddr = (phys_bytes) acpi_ioa->address;
 		ioa[n].gsi_base = acpi_ioa->global_int_base;
 		ioa[n].pins = ((ioapic_read(ioa[n].addr,
 				IOAPIC_VERSION) & 0xff0000) >> 16)+1;
-		printf("IO APIC %d addr 0x%lx paddr 0x%lx pins %d\n",
-				acpi_ioa->id, ioa[n].addr, ioa[n].paddr,
+		printf("IO APIC idx %d id %d addr 0x%lx paddr 0x%lx pins %d\n",
+				n, acpi_ioa->id, ioa[n].addr, ioa[n].paddr,
 				ioa[n].pins);
-
 		n++;
 	}
 
@@ -936,13 +949,15 @@ int detect_ioapics(void)
 {
 	int status;
 
-	if (machine.acpi_rsdp)
+	if (machine.acpi_rsdp) {
 		status = acpi_get_ioapics(io_apic, &nioapics, MAX_NR_IOAPICS);
-	else
+	} else {
 		status = 0;
+	}
 	if (!status) {
 		/* try something different like MPS */
 	}
+
 	return status;
 }
 
@@ -1113,7 +1128,7 @@ int apic_single_cpu_init(void)
 	if (!cpu_feature_apic_on_chip())
 		return 0;
 
-	lapic_addr = phys2vir(LOCAL_APIC_DEF_ADDR);
+	lapic_addr = LOCAL_APIC_DEF_ADDR;
 	ioapic_enabled = 0;
 
 	if (!lapic_enable(0)) {
@@ -1234,8 +1249,6 @@ void ioapic_reset_pic(void)
 	 * master and slave.  */
 		outb(0x22, 0x70);
 		outb(0x23, 0x00);
-	
-	intr_init(INTS_ORIG, 0); /* no auto eoi */
 }
 
 static void irq_lapic_status(int irq)

@@ -19,12 +19,18 @@
 #include "debug.h"
 
 /* Kernel information structures. This groups vital kernel information. */
-EXTERN struct kinfo kinfo;		/* kernel information for users */
-EXTERN struct machine machine;		/* machine information for users */
-EXTERN struct kmessages kmess;  	/* diagnostic messages in kernel */
-EXTERN char kmess_buf[80*25];		/* printable copy of message buffer */
-EXTERN struct k_randomness krandom;	/* gather kernel random information */
-EXTERN struct loadinfo kloadinfo;	/* status of load average */
+extern struct kinfo kinfo;		  /* kernel information for users */
+extern struct machine machine;		  /* machine information for users */
+extern struct kmessages kmessages;  	  /* diagnostic messages in kernel */
+extern struct loadinfo loadinfo;	  /* status of load average */
+extern struct minix_kerninfo minix_kerninfo;
+
+EXTERN struct k_randomness krandom; 	/* gather kernel random information */
+
+vir_bytes minix_kerninfo_user;
+
+#define kmess kmessages
+#define kloadinfo loadinfo
 
 /* Process scheduling information and the kernel reentry count. */
 EXTERN struct proc *vmrequest;  /* first process on vmrequest queue */
@@ -40,14 +46,8 @@ EXTERN int irq_use;				/* map of all in-use irq's */
 EXTERN u32_t system_hz;				/* HZ value */
 
 /* Miscellaneous. */
-EXTERN int do_serial_debug;
-EXTERN int serial_debug_baud;
 EXTERN time_t boottime;
-EXTERN char params_buffer[512];		/* boot monitor parameters */
-EXTERN int minix_panicing;
 EXTERN int verboseboot;			/* verbose boot, init'ed in cstart */
-#define MAGICTEST 0xC0FFEE23
-EXTERN u32_t magictest;			/* global magic number */
 
 #if DEBUG_TRACE
 EXTERN int verboseflags;
@@ -70,10 +70,10 @@ EXTERN int config_no_smp; /* optionaly turn off SMP */
 /* VM */
 EXTERN int vm_running;
 EXTERN int catch_pagefaults;
+EXTERN int kernel_may_alloc;
 
 /* Variables that are initialized elsewhere are just extern here. */
-extern struct boot_image image[]; 	/* system image processes */
-extern struct segdesc_s gdt[];		/* global descriptor table */
+extern struct boot_image image[NR_BOOT_PROCS]; 	/* system image processes */
 
 EXTERN volatile int serial_debug_active;
 
@@ -84,5 +84,8 @@ EXTERN u64_t kernel_ticks[CONFIG_MAX_CPUS];
 EXTERN u64_t bkl_ticks[CONFIG_MAX_CPUS];
 EXTERN unsigned bkl_tries[CONFIG_MAX_CPUS];
 EXTERN unsigned bkl_succ[CONFIG_MAX_CPUS];
+
+/* Feature flags */
+EXTERN int minix_feature_flags;
 
 #endif /* GLO_H */

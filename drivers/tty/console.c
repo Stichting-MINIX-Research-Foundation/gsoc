@@ -18,6 +18,7 @@
 
 #include <minix/drivers.h>
 #include <termios.h>
+#include <assert.h>
 #include <sys/ioctl.h>
 #include <sys/vm.h>
 #include <sys/video.h>
@@ -172,7 +173,7 @@ int try;
   do {
 	if (count > sizeof(buf)) count = sizeof(buf);
 	if ((result = sys_safecopyfrom(tp->tty_outcaller, tp->tty_outgrant,
-		tp->tty_outoffset, (vir_bytes) buf, count, D)) != OK)
+		tp->tty_outoffset, (vir_bytes) buf, count)) != OK)
 		break;
 	tp->tty_outoffset += count;
 	tbuf = buf;
@@ -813,7 +814,7 @@ void do_video(message *m)
 
 	   		r = sys_safecopyfrom(m->m_source,
 				(cp_grant_id_t) m->IO_GRANT, 0,
-				(vir_bytes) &mapreqvm, sizeof(mapreqvm), D);
+				(vir_bytes) &mapreqvm, sizeof(mapreqvm));
 
 			if (r != OK)
 			{
@@ -834,7 +835,7 @@ void do_video(message *m)
 	   			if((r = sys_safecopyto(m->m_source,
 				  (cp_grant_id_t) m->IO_GRANT, 0,
 				  (vir_bytes) &mapreqvm,
-				  sizeof(mapreqvm), D)) != OK) {
+				  sizeof(mapreqvm))) != OK) {
 				  printf("tty: sys_safecopyto failed\n");
 				}
 			} else {
@@ -971,7 +972,6 @@ tty_t *tp;
 	if(font_memory == MAP_FAILED) 
   		panic("Console couldn't map font memory");
 
-
   	vid_size >>= 1;		/* word count */
   	vid_mask = vid_size - 1;
 
@@ -983,6 +983,7 @@ tty_t *tp;
 
   	if (nr_cons > NR_CONS) nr_cons = NR_CONS;
   	if (nr_cons > 1) wrap = 0;
+	if (nr_cons < 1) panic("no consoles");
   	page_size = vid_size / nr_cons;
   }
 
@@ -1007,29 +1008,21 @@ tty_t *tp;
   cons_ioctl(tp, 0);
 }
 
+extern struct minix_kerninfo *_minix_kerninfo;
+
 /*===========================================================================*
  *				do_new_kmess				     *
  *===========================================================================*/
 void do_new_kmess()
 {
 /* Notification for a new kernel message. */
-  static struct kmessages kmess;		/* kmessages structure */
+  struct kmessages *kmess_ptr;		/* kmessages structure */
   static int prev_next = 0;			/* previous next seen */
   int bytes;
   int r;
 
-  /* Try to get a fresh copy of the buffer with kernel messages. */
-#if DEAD_CODE	
-  /* During shutdown, the reply is garbled because new notifications arrive
-   * while the system task makes a copy of the kernel messages buffer.
-   * Hence, don't check the return value. 
-   */
-  if ((r=sys_getkmessages(&kmess)) != OK) {
-  	printf("TTY: couldn't get copy of kmessages: %d, 0x%x\n", r,r);
-  	return;
-  }
-#endif
-  sys_getkmessages(&kmess);
+  assert(_minix_kerninfo);
+  kmess_ptr = _minix_kerninfo->kmessages;
 
   /* Print only the new part. Determine how many new bytes there are with 
    * help of the current and previous 'next' index. Note that the kernel
@@ -1037,11 +1030,11 @@ void do_new_kmess()
    * is new data; else we miss % _KMESS_BUF_SIZE here.  
    * Check for size being positive, the buffer might as well be emptied!
    */
-  if (kmess.km_size > 0) {
-      bytes = ((kmess.km_next + _KMESS_BUF_SIZE) - prev_next) % _KMESS_BUF_SIZE;
+  if (kmess_ptr->km_size > 0) {
+      bytes = ((kmess_ptr->km_next + _KMESS_BUF_SIZE) - prev_next) % _KMESS_BUF_SIZE;
       r=prev_next;				/* start at previous old */ 
       while (bytes > 0) {			
-          cons_putk( kmess.km_buf[(r%_KMESS_BUF_SIZE)] );
+          cons_putk( kmess_ptr->km_buf[(r%_KMESS_BUF_SIZE)] );
           bytes --;
           r ++;
       }
@@ -1051,7 +1044,7 @@ void do_new_kmess()
   /* Almost done, store 'next' so that we can determine what part of the
    * kernel messages buffer to print next time a notification arrives.
    */
-  prev_next = kmess.km_next;
+  prev_next = kmess_ptr->km_next;
 }
 
 /*===========================================================================*
@@ -1204,7 +1197,7 @@ message *m;
   result = ga_program(seq1);	/* bring font memory into view */
 
   if(sys_safecopyfrom(m->m_source, (cp_grant_id_t) m->IO_GRANT, 0,
-	(vir_bytes) font_memory, GA_FONT_SIZE, D) != OK) {
+	(vir_bytes) font_memory, GA_FONT_SIZE) != OK) {
 	printf("tty: copying from %d failed\n", m->m_source);
 	return EFAULT;
   }

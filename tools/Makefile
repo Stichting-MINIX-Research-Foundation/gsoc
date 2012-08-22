@@ -1,136 +1,110 @@
-# Makefile for the kernel image.
-.include <bsd.own.mk>
-.include "nbsd.config"
+#	$NetBSD: Makefile,v 1.155 2011/11/03 07:42:56 joerg Exp $
 
 .include <bsd.own.mk>
 
-u=/usr
-MDEC=	/usr/mdec
-GEN_FILES=	*.bak image kernel *.iso *.iso.gz cdfdimage rootimage src
+HAVE_GCC= 45
 
-# Specify the programs that are part of the system image.
-KERNEL= kernel
-# PROGRAMS are in the order they should be loaded by boot
-PROGRAMS= \
-	../servers/ds/ds \
-	../servers/rs/rs \
-	../servers/pm/pm \
-	../servers/sched/sched \
-	../servers/vfs/vfs \
-	../drivers/memory/memory \
-	../drivers/log/log \
-	../drivers/tty/tty \
-	../servers/mfs/mfs \
-	../servers/vm/vm \
-	../servers/pfs/pfs \
-	../servers/init/init
-
-usage:	
-	@echo " " >&2
-	@echo "Master Makefile to create new MINIX configuration." >& 2
-	@echo "Root privileges are required." >&2
-	@echo " " >&2
-	@echo "Usage:" >&2
-	@echo "	make includes   # Install include files" >&2
-	@echo "	make depend     # Generate dependency files" >&2
-	@echo "	make services   # Compile and install all services" >&2
-	@echo "	make image      # Make needed services and create boot image" >&2
-	@echo "	make install    # Make image, and install to hard disk" >&2
-	@echo "	make hdboot     # Make image, and install to hard disk" >&2
-	@echo "	make fdboot     # Make image, and install to floppy disk" >&2
-	@echo "	make bootable   # Make hard disk bootable" >&2
-	@echo "	make nbsd_fetch	# Download current NetBSD reference sources" >&2
-	@echo "	make nbsd_diff	# Update minix-port.patch in NetBSD sources" >&2
-	@echo "	make clean      # Remove all compiler results, except libs" >&2
-	@echo " " >&2
-	@echo "To create a fresh MINIX configuration, try:" >&2
-	@echo "	make clean install      # new boot image" >&2
-	@echo "	make fresh install      # new everything" >&2
-	@echo " " >&2
-
-all: services image
-
-image: includes services
-	mkimage $(PROGRAMS)
-
-# rebuild the program or system libraries
-includes:
-	$(MAKE) -C .. includes
-
-depend: includes .gitignore
-	$(MAKE) -C ../ depend
-
-.gitignore: Makefile
-	echo $(GEN_FILES) | tr ' ' '\n' >.gitignore
-
-services: includes kernel servers .WAIT drivers
-
-kernel: includes
-	$(MAKE) -C ../kernel 
-
-servers: includes
-	$(MAKE) -C ../servers all install
-
-drivers: includes servers
-	$(MAKE) -C ../drivers all install
-
-# make bootable and place system images
-bootable:
-	exec su root mkboot bootable
-
-hdboot: image
-	rm -rf /boot/minix/.temp/
-	mkdir -p /boot/minix/.temp
-# mod_0 is used to make alphabetical order equal to the boot order
-	for i in ${PROGRAMS};					\
-	do							\
-	let n=n+1 >/dev/null;					\
-	[ "$$n" -ge 10 ] && prefix="mod" || prefix="mod0";	\
-	newname="/boot/minix/.temp/$${prefix}$${n}_`basename $$i`"; \
-	cp $$i $$newname;					\
-	strip -s $$newname;					\
-	gzip $$newname;						\
-	done
-	cp ../kernel/kernel /boot/minix/.temp/
-	strip -s /boot/minix/.temp/kernel
-	sh mkboot $@
-	sh ../commands/update_bootcfg/update_bootcfg.sh
-
-fdboot:	image
-	exec su root mkboot $@
-	@sync
-
-install: includes services hdboot
-
-# download and update NetBSD reference sources.
-nbsd_fetch:
-	export CVS_RSH=ssh; 							\
-	echo "retrieving hierarchies from ${NBSD_CVSROOT}";			\
-	IFS=,;									\
-	cat nbsd_ports | grep -v '^#' | while read port ;			\
-	do	set $$port;							\
-		date=$$1; minixpath=$$2; origpath=$$3;				\
-		if [ $$# -lt 3 ]; then origpath=$$2; fi;			\
-		echo "retrieving $$origpath ..";				\
-		cd ${MINIXSRCDIR} && cvs -q -d ${NBSD_CVSROOT} co -N -D "$$date UTC" -d nbsdsrc "src/$$origpath" ; \
-	done
-
-nbsd_diff:
-	find ${MINIXSRCDIR} -name minix-port.patch | xargs rm
-	cat nbsd_ports | grep -v '^#' | \
-	( cd ${MINIXSRCDIR} && awk -F, '{ minixpath=$$2; origpath=$$3; if(NF < 3) { origpath=$$2; } system("sh tools/nbsd_diff.sh " \
-	   "nbsdsrc/src/"origpath" "minixpath" "minixpath"/minix-port.patch");}' )
-	find ${MINIXSRCDIR} -name minix-port.patch | xargs wc -l | sort -n
+# Dependencies in SUBDIR below ordered to maximize parallel ability.
+SUBDIR=	host-mkdep .WAIT compat .WAIT \
+	binstall .WAIT mktemp .WAIT sed .WAIT \
+		genassym \
+		makewhatis mkdep \
+		mkfs.mfs m4 \
+	.WAIT yacc \
+	.WAIT awk \
+	.WAIT tic \
+	.WAIT lex \
+	.WAIT gmake .WAIT gmp .WAIT mpfr .WAIT mpc .WAIT binutils .WAIT gcc \
+		cat file pwd_mkdb stat zic \
 
 
-# clean up compile results
-clean:
-	$(MAKE) -C ../kernel $@
-	$(MAKE) -C ../servers $@
-	$(MAKE) -C ../drivers $@
-	rm -rf $(GEN_FILES)
 
-cleandepend::
-	$(MAKE) -C ../kernel $@
-	$(MAKE) -C ../servers  $@
-	$(MAKE) -C ../drivers  $@
+.if ${MKTOOLS:Uyes} == "no" || ${USETOOLS} != "yes"	# {
+realall realdepend install: check_MKTOOLS
+
+.for dir in ${SUBDIR:N.WAIT}
+all-${dir} depend-${dir} dependall-${dir} install-${dir}:
+	@true
+.endfor
+.endif							# }
+
+.include <bsd.subdir.mk>
+.include <bsd.obj.mk>
+
+.if !defined(PREVIOUSTOOLDIR)
+.  if exists(PREVIOUSTOOLDIR)
+PREVIOUSTOOLDIR!=	cat PREVIOUSTOOLDIR
+.  else
+PREVIOUSTOOLDIR=	
+.  endif
+.endif
+
+CLEANFILES+=	PREVIOUSTOOLDIR
+
+realall realdepend: .MAKE
+.if !empty(PREVIOUSTOOLDIR) && "${PREVIOUSTOOLDIR}" != "${TOOLDIR}"
+	@echo "*** WARNING: TOOLDIR has moved?"
+	@echo "*** PREVIOUSTOOLDIR '${PREVIOUSTOOLDIR}'"
+	@echo "***     !=  TOOLDIR '${TOOLDIR}'"
+	@echo "*** Cleaning mis-matched tools"
+	rm -f PREVIOUSTOOLDIR
+	(cd ${.CURDIR} && ${MAKE} PREVIOUSTOOLDIR=${TOOLDIR} cleandir)
+.endif
+	echo ${TOOLDIR} >PREVIOUSTOOLDIR
+
+# For each .WAIT point, make sure the immediately preceding target is
+# installed before building anything after that point.
+# (dsl: which means that with: 'a b .WAIT c' the build of 'c' waits for the
+# install of 'b', but not the install of 'a'.)
+#
+# We use the "internal" targets and dependencies generated by <bsd.subdir.mk>
+# to achieve this. These targets look like:
+#	subdir-all:	all-dir1     [.WAIT] all-dir2     etc..
+#	subdir-install:	install-dir1 [.WAIT] install-dir2 etc..
+# and so on for each element in ${TARGETS}, with .WAIT sources inserted at
+# places corresponding to the .WAITs in our $SUBDIR variable.
+#
+# Also, since we're now mixing `install' with `all' and `depend' targets
+# an order relationship between those in each individual subdirectory
+# must be established.
+#
+_deps:=
+_prev:=
+
+.for d in ${SUBDIR}				# {
+_this:=		${d}
+
+.if ${_this} == ".WAIT"				# {
+
+# setup dependency to apply to all/depend targets in the next group
+_deps:=		${_deps} ${_prev:S/^/install-/}
+
+# if we're building *only* individual targets (i.e. "dependall-yacc"),
+# make sure prerequisite tools build before installing
+# XXX: dsl: this is likely to generate a dependency loop since there is
+# a .ORDER releation between the nodes as well.
+.if !make(all) && !make(dependall) && !make(install)
+install-${_prev}: dependall-${_prev}
+.endif
+
+.else # ${_this} != ".WAIT"			# } {
+
+# order depend/all/install targets for ${d} subdir.
+.ORDER: depend-${d} all-${d} dependall-${d} install-${d}
+
+# prevent cleandir in real{all,depend} from interfering with subdir makes
+.ORDER: realdepend dependall-${d}
+.ORDER: realdepend depend-${d}
+.ORDER: realall all-${d}
+
+# make all/depend-${d} dependent on list of install targets
+depend-${d} all-${d} dependall-${d}: ${_deps}
+
+.endif # ${_this} != ".WAIT"			# }
+
+# stash current name in case the next entry is .WAIT
+_prev:=		${d}
+.endfor						# }
+
+cleandir:
+	rm -f ${CLEANFILES}

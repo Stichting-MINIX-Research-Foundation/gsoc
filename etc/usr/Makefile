@@ -1,3 +1,4 @@
+.include <bsd.own.mk>
 # Makefile - installed as /usr/Makefile
 #
 # Provides simple targets to download and maintain /usr/pkgsrc etc.
@@ -23,7 +24,7 @@ help all:
 pkgsrc-create: git
 	@echo "If problems occur you may have to rm -rf pkgsrc and try again."
 	@echo ""
-	mkdir -p ${.CURDIR}/pkgsrc
+	${INSTALL_DIR} ${.CURDIR}/pkgsrc
 	cd ${.CURDIR}/pkgsrc && git init
 	cd ${.CURDIR}/pkgsrc && \
 		git remote add origin git://git.minix3.org/pkgsrc.git

@@ -9,6 +9,7 @@ static int do_exec(int proc_e, char *exec, size_t exec_len, char *progname,
 static int exec_restart(int proc_e, int result, vir_bytes pc);
 static int read_seg(struct exec_info *execi, off_t off,
         off_t seg_addr, size_t seg_bytes);
+static int exec_restart(int proc_e, int result, vir_bytes pc);
 
 /* Array of loaders for different object formats */
 static struct exec_loaders {
@@ -119,6 +120,7 @@ static int do_exec(int proc_e, char *exec, size_t exec_len, char *progname,
 
 	memset(&execi, 0, sizeof(execi));
 
+	execi.stack_high = kinfo.user_sp;
 	execi.stack_size = DEFAULT_STACK_LIMIT;
 	execi.proc_e = proc_e;
 	execi.hdr = exec;
@@ -202,8 +204,8 @@ size_t seg_bytes           /* how much is to be transferred? */
   int r;
 
   if (off+seg_bytes > execi->hdr_len) return ENOEXEC;
-  if((r= sys_vircopy(SELF, D, ((vir_bytes)execi->hdr)+off,
-  	execi->proc_e, D, seg_addr, seg_bytes)) != OK) {
+  if((r= sys_vircopy(SELF, ((vir_bytes)execi->hdr)+off,
+  	execi->proc_e, seg_addr, seg_bytes)) != OK) {
 	printf("RS: exec read_seg: copy 0x%x bytes into %d at 0x%lx failed: %d\n",
 		seg_bytes, execi->proc_e, seg_addr, r);
   }

@@ -10,7 +10,6 @@
  */
 
 #include <string.h>
-#include <minix/endpoint.h>
 
 #include "kernel/system.h"
 
@@ -133,8 +132,8 @@ int do_getinfo(struct proc * caller, message * m_ptr)
 	return OK;
     }
     case GET_MONPARAMS: {
-        src_vir = (vir_bytes) params_buffer;
-	length = sizeof(params_buffer);
+        src_vir = (vir_bytes) kinfo.param_buf;
+	length = sizeof(kinfo.param_buf);
         break;
     }
     case GET_RANDOMNESS: {		
@@ -167,11 +166,6 @@ int do_getinfo(struct proc * caller, message * m_ptr)
 	wipe_rnd_bin = bin;
 
     	break;
-    }
-    case GET_KMESSAGES: {
-        length = sizeof(struct kmessages);
-        src_vir = (vir_bytes) &kmess;
-        break;
     }
     case GET_IRQACTIDS: {
         length = sizeof(irq_actids);

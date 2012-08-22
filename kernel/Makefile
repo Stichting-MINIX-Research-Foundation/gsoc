@@ -3,29 +3,31 @@
 
 PROG=	kernel
 
-.include "arch/${ARCH}/Makefile.inc"
+.include "arch/${MACHINE_ARCH}/Makefile.inc"
 
-SRCS+=	clock.c cpulocals.c interrupt.c main.c proc.c start.c system.c \
-	table.c utility.c 
+SRCS+=	clock.c cpulocals.c interrupt.c main.c proc.c system.c \
+	table.c utility.c usermapped_data.c
 
-DPADD+=	${LIBTIMERS} ${LIBSYS} ${LIBEXEC}
+LINKERSCRIPT=${.CURDIR}/arch/${MACHINE_ARCH}/kernel.lds
+
+DPADD+=	${LIBTIMERS} ${LIBSYS} ${LIBEXEC} $(LINKERSCRIPT)
 LDADD+=	-ltimers -lsys -lexec
 
-CFLAGS += -D__kernel__
+CFLAGS += -D__kernel__ 
 
 CPPFLAGS+= -fno-stack-protector -D_NETBSD_SOURCE
-LDFLAGS+= -T ${.CURDIR}/arch/${ARCH}/kernel.lds
-LDFLAGS+= -nostdlib -L${LIBDIR}
+LDFLAGS+= -T $(LINKERSCRIPT)
+LDFLAGS+= -nostdlib -L${DESTDIR}/${LIBDIR}
 LDADD+= -lminlib
 DPADD+= ${LIBMINLIB}
-.if ${CC} == "gcc"
+.if !empty(CC:M*gcc)
 LDADD+=	-lgcc -lsys -lgcc -lminc
-.elif ${CC} == "clang"
+.elif !empty(CC:M*clang)
 LDADD+= -L/usr/pkg/compiler-rt/lib -lCompilerRT-Generic -lsys -lCompilerRT-Generic -lminc
 DPADD+=	${LIBC}
 .endif
 
-CPPFLAGS+=	-I${.CURDIR} -I${.CURDIR}/arch/${ARCH}/include -I${MINIXSRCDIR}
+CPPFLAGS+=	-I${.CURDIR} -I${.CURDIR}/arch/${MACHINE_ARCH}/include -I${NETBSDSRCDIR}
 
 BINDIR=	/usr/sbin
 MAN=
@@ -87,3 +89,5 @@ extracted-mtype.h: extract-mtype.sh ../include/minix/com.h
 
 clean:
 	rm -f extracted-errno.h extracted-mfield.h extracted-mtype.h
+
+

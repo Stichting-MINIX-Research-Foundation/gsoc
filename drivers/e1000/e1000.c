@@ -212,8 +212,8 @@ static void e1000_init_pci()
 
     /* Try to detect e1000's. */
     e = &e1000_state;
-    strcpy(e->name, "e1000#0");
-    e->name[6] += e1000_instance;	
+    strlcpy(e->name, "e1000#0", sizeof(e->name));
+    e->name[6] += e1000_instance;
     e1000_probe(e, e1000_instance);
 }
 
@@ -477,8 +477,8 @@ e1000_t *e;
 static void e1000_init_buf(e)
 e1000_t *e;
 {
-    phys_bytes rx_desc_p, rx_buff_p;
-    phys_bytes tx_desc_p, tx_buff_p;
+    phys_bytes rx_buff_p;
+    phys_bytes tx_buff_p;
     int i;
 
     /* Number of descriptors. */
@@ -492,7 +492,7 @@ e1000_t *e;
     {
     	if ((e->rx_desc = alloc_contig(sizeof(e1000_rx_desc_t) * 
 				       e->rx_desc_count, AC_ALIGN4K, 
-				      &rx_desc_p)) == NULL) {
+				      &e->rx_desc_p)) == NULL) {
 		panic("failed to allocate RX descriptors");
     	}
     	memset(e->rx_desc, 0, sizeof(e1000_rx_desc_t) * e->rx_desc_count);
@@ -521,7 +521,7 @@ e1000_t *e;
     {
         if ((e->tx_desc = alloc_contig(sizeof(e1000_tx_desc_t) * 
 				       e->tx_desc_count, AC_ALIGN4K, 
-				      &tx_desc_p)) == NULL) {
+				      &e->tx_desc_p)) == NULL) {
 		panic("failed to allocate TX descriptors");
     	}
     	memset(e->tx_desc, 0, sizeof(e1000_tx_desc_t) * e->tx_desc_count);
@@ -546,7 +546,7 @@ e1000_t *e;
     /*
      * Setup the receive ring registers.
      */
-    e1000_reg_write(e, E1000_REG_RDBAL, rx_desc_p);
+    e1000_reg_write(e, E1000_REG_RDBAL, e->rx_desc_p);
     e1000_reg_write(e, E1000_REG_RDBAH, 0);
     e1000_reg_write(e, E1000_REG_RDLEN, e->rx_desc_count *
 					sizeof(e1000_rx_desc_t));
@@ -558,7 +558,7 @@ e1000_t *e;
     /*
      * Setup the transmit ring registers.
      */
-    e1000_reg_write(e, E1000_REG_TDBAL, tx_desc_p);
+    e1000_reg_write(e, E1000_REG_TDBAL, e->tx_desc_p);
     e1000_reg_write(e, E1000_REG_TDBAH, 0);
     e1000_reg_write(e, E1000_REG_TDLEN, e->tx_desc_count *
 					sizeof(e1000_tx_desc_t));
@@ -615,7 +615,7 @@ int from_int;
 	if ((r = sys_safecopyfrom(e->tx_message.m_source,
 				  e->tx_message.DL_GRANT, 0,
 				  (vir_bytes) iovec, e->tx_message.DL_COUNT *
-				  sizeof(iovec_s_t), D)) != OK)
+				  sizeof(iovec_s_t))) != OK)
 	{
 	    panic("sys_safecopyfrom() failed: %d", r);
 	}
@@ -640,7 +640,7 @@ int from_int;
 				     iovec[i].iov_grant, 0,
 				     (vir_bytes) e->tx_buffer +
 				     (tail * E1000_IOBUF_SIZE),
-				      size, D)) != OK)
+				      size)) != OK)
 	    {
 		panic("sys_safecopyfrom() failed: %d", r);
 	    }
@@ -706,7 +706,7 @@ int from_int;
 	if ((r = sys_safecopyfrom(e->rx_message.m_source,
 				  e->rx_message.DL_GRANT, 0,
 				  (vir_bytes) iovec, e->rx_message.DL_COUNT *
-				  sizeof(iovec_s_t), D)) != OK)
+				  sizeof(iovec_s_t))) != OK)
 	{
 	    panic("sys_safecopyfrom() failed: %d", r);
 	}
@@ -741,7 +741,7 @@ int from_int;
 	    if ((r = sys_safecopyto(e->rx_message.m_source, iovec[i].iov_grant,
 				   0, (vir_bytes) e->rx_buffer + bytes + 
 				   (cur * E1000_IOBUF_SIZE),
-				    size, D)) != OK)
+				    size)) != OK)
 	    {
 		panic("sys_safecopyto() failed: %d", r);
 	    }
@@ -791,7 +791,7 @@ message *mp;
     stats.ets_OWC = 0;
 
     sys_safecopyto(mp->m_source, mp->DL_GRANT, 0, (vir_bytes)&stats,
-                   sizeof(stats), D);
+                   sizeof(stats));
     mp->m_type  = DL_STAT_REPLY;
     if((r=send(mp->m_source, mp)) != OK)
 	panic("e1000_getstat: send() failed: %d", r);

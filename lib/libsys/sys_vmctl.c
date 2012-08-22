@@ -12,16 +12,17 @@ int sys_vmctl(endpoint_t who, int param, u32_t value)
   return(r);
 }
 
-int sys_vmctl_get_cr3_i386(endpoint_t who, u32_t *cr3)
+/* Get page directory base register */
+int sys_vmctl_get_pdbr(endpoint_t who, u32_t *pdbr)
 {
   message m;
   int r;
 
   m.SVMCTL_WHO = who;
-  m.SVMCTL_PARAM = VMCTL_I386_GETCR3;
+  m.SVMCTL_PARAM = VMCTL_GET_PDBR;
   r = _kernel_call(SYS_VMCTL, &m);
   if(r == OK) {
-	*cr3 = m.SVMCTL_VALUE;
+	*pdbr = m.SVMCTL_VALUE;
   }
   return(r);
 }
@@ -61,15 +62,6 @@ int sys_vmctl_get_memreq(endpoint_t *who, vir_bytes *mem,
 	*requestor = (endpoint_t) m.SVMCTL_MRG_REQUESTOR;
   }
   return r;
-}
-
-int sys_vmctl_enable_paging(void * data)
-{
-	message m;
-	m.SVMCTL_WHO = SELF;
-	m.SVMCTL_PARAM = VMCTL_ENABLE_PAGING;
-	m.SVMCTL_VALUE = (u32_t) data;
-	return _kernel_call(SYS_VMCTL, &m);
 }
 
 int sys_vmctl_get_mapping(int index,

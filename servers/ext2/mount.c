@@ -43,7 +43,7 @@ int fs_readsuper()
 	return(EINVAL);
 
   r = sys_safecopyfrom(fs_m_in.m_source, label_gid, 0,
-		       (vir_bytes)fs_dev_label, label_len, D);
+		       (vir_bytes)fs_dev_label, label_len);
   if (r != OK) {
 	printf("%s:%d fs_readsuper: safecopyfrom failed: %d\n",
 	       __FILE__, __LINE__, r);
@@ -107,17 +107,14 @@ int fs_readsuper()
   }
 
   if (superblock->s_state == EXT2_ERROR_FS) {
-	printf("ext2: filesystem wasn't cleanly unmounted previous time\n");
+	printf("ext2: filesystem wasn't cleanly unmounted last time\n");
         superblock->s_dev = NO_DEV;
 	bdev_close(fs_dev);
 	return(EINVAL);
   }
 
 
-  set_blocksize(superblock->s_block_size,
-  	superblock->s_blocks_count,
-	superblock->s_free_blocks_count,
-	major(fs_dev));
+  set_blocksize(superblock);
 
   /* Get the root inode of the mounted file system. */
   if ( (root_ip = get_inode(fs_dev, ROOT_INODE)) == NULL)  {

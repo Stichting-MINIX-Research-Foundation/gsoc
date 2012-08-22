@@ -17,11 +17,10 @@
 
 #include <minix/config.h>
 
+#include "kernel.h"
+
 #include <minix/profile.h>
 #include <minix/portio.h>
-#include "kernel.h"
-#include "profile.h"
-#include "proc.h"
 
 #if SPROFILE
 
@@ -82,7 +81,7 @@ static void sprof_save_proc(struct proc * p)
 	s = (struct sprof_proc *) (sprof_sample_buffer + sprof_info.mem_used);
 
 	s->proc = p->p_endpoint;
-	memcpy(&s->name, p->p_name, P_NAME_LEN);
+	strcpy(s->name, p->p_name);
 
 	sprof_info.mem_used += sizeof(struct sprof_proc);
 }

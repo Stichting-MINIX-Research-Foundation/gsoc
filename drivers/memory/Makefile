@@ -1,8 +1,11 @@
 # Makefile for memory driver (MEMORY)
+
 PROG=	memory
 SRCS=	memory.c imgrd.mfs
 OBJS=	${SRCS:N*.h:R:S/$/.o/g}
+MKBUILDEXT2RD?=	no
 
+RAMDISK_PATH= ${NETBSDSRCDIR}/drivers/ramdisk
 DPADD+=	${LIBBLOCKDRIVER} ${LIBCHARDRIVER} ${LIBSYS}
 LDADD+=	-lblockdriver -lchardriver -lsys
 
@@ -10,7 +13,7 @@ MAN=
 
 BINDIR?= /usr/sbin
 
-CPPFLAGS.memory.c+=	-I${MINIXSRCDIR}
+CPPFLAGS.memory.c+=	-I${NETBSDSRCDIR}
 
 imgrd.d: touch-genfiles
 touch-genfiles:
@@ -23,10 +26,13 @@ touch-genfiles:
 # but bsd.own.mk has to be upgraded for that.
 .mfs.o:
 	${_MKTARGET_CREATE}
-	${OBJCOPY} -Ibinary -B${ARCH} -Oelf32-${ARCH}-minix $< $@
+	${OBJCOPY} -Ibinary -B${MACHINE_ARCH} -Oelf32-${MACHINE_ARCH}-minix $< $@
 
-imgrd.mfs:
-	ln -s ../ramdisk/image $@
+${RAMDISK_PATH}/image: .PHONY
+	${MAKE} -C ${RAMDISK_PATH} image
+
+imgrd.mfs: ${RAMDISK_PATH}/image
+	ln -fs ${RAMDISK_PATH}/image $@
 CLEANFILES+=	imgrd.mfs
 
 .include <minix.bootprog.mk>

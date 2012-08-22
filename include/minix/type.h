@@ -1,5 +1,6 @@
 #ifndef _TYPE_H
 #define _TYPE_H
+#include <machine/multiboot.h>
 
 #ifndef _MINIX_SYS_CONFIG_H
 #include <minix/sys_config.h>
@@ -16,39 +17,12 @@ typedef unsigned int vir_clicks; 	/*  virtual addr/length in clicks */
 typedef unsigned long phys_bytes;	/* physical addr/length in bytes */
 typedef unsigned int phys_clicks;	/* physical addr/length in clicks */
 typedef int endpoint_t;			/* process identifier */
-
 typedef int32_t cp_grant_id_t;		/* A grant ID. */
-
-#if (_MINIX_CHIP == _CHIP_INTEL)
 typedef long unsigned int vir_bytes;	/* virtual addresses/lengths in bytes */
-#endif
-
-#if (_MINIX_CHIP == _CHIP_M68000)
-typedef unsigned long vir_bytes;/* virtual addresses and lengths in bytes */
-#endif
-
-#if (_MINIX_CHIP == _CHIP_SPARC)
-typedef unsigned long vir_bytes;/* virtual addresses and lengths in bytes */
-#endif
-
-/* Memory map for local text, stack, data segments. */
-struct mem_map {
-  vir_clicks mem_vir;		/* virtual address */
-  phys_clicks mem_phys;		/* physical address */
-  vir_clicks mem_len;		/* length */
-};
-
-/* Memory map for remote memory areas, e.g., for the RAM disk. */
-struct far_mem {
-  int in_use;			/* entry in use, unless zero */
-  phys_clicks mem_phys;		/* physical address */
-  vir_clicks mem_len;		/* length */
-};
 
 /* Structure for virtual copying by means of a vector with requests. */
 struct vir_addr {
-  endpoint_t proc_nr_e;
-  int segment;
+  endpoint_t proc_nr_e; /* NONE for phys, otherwise process endpoint */
   vir_bytes offset;
 };
 
@@ -99,27 +73,6 @@ struct sigmsg {
   vir_bytes sm_stkptr;		/* user stack pointer */
 };
 
-/* This is used to obtain system information through SYS_GETINFO. */
-struct kinfo {
-  phys_bytes code_base;		/* base of kernel code */
-  phys_bytes code_size;		
-  phys_bytes data_base;		/* base of kernel data */
-  phys_bytes data_size;
-  vir_bytes proc_addr;		/* virtual address of process table */
-  phys_bytes _kmem_base;	/* kernel memory layout (/dev/kmem) */
-  phys_bytes _kmem_size;
-  phys_bytes bootdev_base;	/* boot device from boot image (/dev/boot) */
-  phys_bytes bootdev_size;
-  phys_bytes ramdev_base;	/* boot device from boot image (/dev/boot) */
-  phys_bytes ramdev_size;
-  phys_bytes _params_base;	/* parameters passed by boot monitor */
-  phys_bytes _params_size;
-  int nr_procs;			/* number of user processes */
-  int nr_tasks;			/* number of kernel tasks */
-  char release[6];		/* kernel release number */
-  char version[6];		/* kernel version number */
-};
-
 /* Load data accounted every this no. of seconds. */
 #define _LOAD_UNIT_SECS		 6 	/* Changing this breaks ABI. */
 
@@ -137,15 +90,6 @@ struct loadinfo {
   clock_t last_clock;
 };
 
-struct cpu_info {
-	u8_t	vendor;
-	u8_t	family;
-	u8_t	model;
-	u8_t	stepping;
-	u32_t	freq;		/* in MHz */
-	u32_t	flags[2];
-};
-
 struct machine {
   unsigned processors_count;	/* how many cpus are available */
   unsigned bsp_id;		/* id of the bootstrap cpu */
@@ -160,10 +104,21 @@ struct io_range
 	unsigned ior_limit;	/* Highest I/O port in range */
 };
 
-struct mem_range
+struct minix_mem_range
 {
 	phys_bytes mr_base;	/* Lowest memory address in range */
 	phys_bytes mr_limit;	/* Highest memory address in range */
+};
+
+#define PROC_NAME_LEN   16
+
+/* List of boot-time processes set in kernel/table.c. */
+struct boot_image {
+  int proc_nr;                    	/* process number to use */
+  char proc_name[PROC_NAME_LEN];        /* name in process table */
+  endpoint_t endpoint;                  /* endpoint number when started */
+  phys_bytes start_addr;		/* Where it's in memory */
+  phys_bytes len;
 };
 
 /* Memory chunks. */
@@ -184,6 +139,8 @@ struct kmessages {
   int km_next;                          /* next index to write */
   int km_size;                          /* current size in buffer */
   char km_buf[_KMESS_BUF_SIZE];          /* buffer for messages */
+  char kmess_buf[80*25];           /* printable copy of message buffer */
+  int blpos;				/* kmess_buf position */
 };
 
 #include <minix/config.h>
@@ -203,6 +160,24 @@ struct k_randomness {
         rand_t r_buf[RANDOM_ELEMENTS]; /* buffer for random info */
   } bin[RANDOM_SOURCES];
 };
+
+struct minix_kerninfo {
+	/* Binaries will depend on the offsets etc. in this
+	 * structure, so it can't be changed willy-nilly. In
+	 * other words, it is ABI-restricted.
+	 */
+#define KERNINFO_MAGIC 0xfc3b84bf
+	u32_t kerninfo_magic;
+	u32_t minix_feature_flags;
+	u32_t flags_unused1;
+	u32_t flags_unused2;
+	u32_t flags_unused3;
+	u32_t flags_unused4;
+	struct kinfo		*kinfo;
+	struct machine		*machine;
+	struct kmessages	*kmessages;
+	struct loadinfo		*loadinfo;
+} __packed;
 
 #endif /* _TYPE_H */
 

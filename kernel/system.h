@@ -30,11 +30,7 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-/* Common includes for the system library. */
-#include "debug.h"
 #include "kernel.h"
-#include "proto.h"
-#include "proc.h"
 
 int do_exec(struct proc * caller, message *m_ptr);
 #if ! USE_EXEC
@@ -44,11 +40,6 @@ int do_exec(struct proc * caller, message *m_ptr);
 int do_fork(struct proc * caller, message *m_ptr);
 #if ! USE_FORK
 #define do_fork NULL
-#endif
-
-int do_newmap(struct proc * caller, message *m_ptr);
-#if ! USE_NEWMAP
-#define do_newmap NULL
 #endif
 
 int do_clear(struct proc * caller, message *m_ptr);

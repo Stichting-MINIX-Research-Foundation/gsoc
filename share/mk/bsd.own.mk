@@ -56,6 +56,9 @@ TOOLCHAIN_MISSING?=	no
 # default to GCC4
 .if !defined(HAVE_GCC) && !defined(HAVE_PCC)
 HAVE_GCC=	4
+.if !defined(_GCC_LIBGCCDIR)
+_GCC_LIBGCCDIR= ${DESTDIR}/usr/lib
+.endif
 .endif
 
 .if \
@@ -94,40 +97,6 @@ PRINTOBJDIR=	echo # prevent infinite recursion
 .endif
 
 
-
-#
-# Determine if running in the MINIX source tree by checking for the
-# existence of usr.bin and tools/ in the current or a parent directory,
-# and setting _MSRC_TOP_ to the result.
-#
-.if !defined(_MSRC_TOP_)		# {
-_MSRC_TOP_!= cd ${.CURDIR}; while :; do \
-		here=`pwd`; \
-		[ -d usr.bin ] && [ -d tools ] && { echo $$here; break; }; \
-		case $$here in /) echo ""; break;; esac; \
-		cd ..; done
-
-.MAKEOVERRIDES+=	_MSRC_TOP_
-
-.endif					# }
-
-#
-# If _MSRC_TOP_ != "", we're within the MINIX source tree, so set
-# defaults for MINIXSRCDIR and _MSRC_TOP_OBJ_.
-#
-.if (${_MSRC_TOP_} != "")		# {
-
-MINIXSRCDIR?=	${_MSRC_TOP_}
-
-.if !defined(_MSRC_TOP_OBJ_)
-_MSRC_TOP_OBJ_!=	cd ${_MSRC_TOP_} && ${PRINTOBJDIR}
-.MAKEOVERRIDES+=	_MSRC_TOP_OBJ_
-.endif
-
-.endif	# _MSRC_TOP_ != ""		# }
-
-
-
 #
 # Determine if running in the NetBSD source tree by checking for the
 # existence of build.sh and tools/ in the current or a parent directory,
@@ -162,7 +131,9 @@ _SRC_TOP_OBJ_!=		cd ${_SRC_TOP_} && ${PRINTOBJDIR}
 
 .if (${_SRC_TOP_} != "") && \
     (${TOOLCHAIN_MISSING} == "no" || defined(EXTERNAL_TOOLCHAIN))
+.if (defined(BUILDSH))
 USETOOLS?=	yes
+.endif
 .endif
 USETOOLS?=	no
 
@@ -319,6 +290,7 @@ TOOL_MENUC=		MENUDEF=${TOOLDIR}/share/misc ${TOOLDIR}/bin/${_TOOL_PREFIX}menuc
 TOOL_MIPSELF2ECOFF=	${TOOLDIR}/bin/${_TOOL_PREFIX}mips-elf2ecoff
 TOOL_MKCSMAPPER=	${TOOLDIR}/bin/${_TOOL_PREFIX}mkcsmapper
 TOOL_MKESDB=		${TOOLDIR}/bin/${_TOOL_PREFIX}mkesdb
+TOOL_MKFSMFS=		${TOOLDIR}/bin/${_TOOL_PREFIX}mkfs.mfs
 TOOL_MKLOCALE=		${TOOLDIR}/bin/${_TOOL_PREFIX}mklocale
 TOOL_MKMAGIC=		${TOOLDIR}/bin/${_TOOL_PREFIX}file
 TOOL_MKTEMP=		${TOOLDIR}/bin/${_TOOL_PREFIX}mktemp
@@ -343,6 +315,7 @@ TOOL_STAT=		${TOOLDIR}/bin/${_TOOL_PREFIX}stat
 TOOL_STRFILE=		${TOOLDIR}/bin/${_TOOL_PREFIX}strfile
 TOOL_SUNLABEL=		${TOOLDIR}/bin/${_TOOL_PREFIX}sunlabel
 TOOL_TBL=		${TOOLDIR}/bin/${_TOOL_PREFIX}tbl
+TOOL_TIC=		${TOOLDIR}/bin/${_TOOL_PREFIX}tic
 TOOL_UUDECODE=		${TOOLDIR}/bin/${_TOOL_PREFIX}uudecode
 TOOL_VGRIND=		${TOOLDIR}/bin/${_TOOL_PREFIX}vgrind -f
 TOOL_ZIC=		${TOOLDIR}/bin/${_TOOL_PREFIX}zic
@@ -390,6 +363,7 @@ TOOL_MENUC=		menuc
 TOOL_MIPSELF2ECOFF=	mips-elf2ecoff
 TOOL_MKCSMAPPER=	mkcsmapper
 TOOL_MKESDB=		mkesdb
+TOOL_MKFSMFS=		mkfs.mfs
 TOOL_MKLOCALE=		mklocale
 TOOL_MKMAGIC=		file
 TOOL_MKTEMP=		mktemp
@@ -414,6 +388,7 @@ TOOL_STAT=		stat
 TOOL_STRFILE=		strfile
 TOOL_SUNLABEL=		sunlabel
 TOOL_TBL=		tbl
+TOOL_TIC=		tic
 TOOL_UUDECODE=		uudecode
 TOOL_VGRIND=		vgrind -f
 TOOL_ZIC=		zic
@@ -774,7 +749,7 @@ _MKVARS.yes= \
 #MINIX-specific vars
 _MKVARS.yes+= \
 	MKWATCHDOG MKACPI MKAPIC MKMCONTEXT MKDEBUGREG MKSYSDEBUG \
-	MKLIVEUPDATE MKSTATECTL MKTRACE 
+	MKLIVEUPDATE MKSTATECTL MKTRACE MKINSTALLBOOT MKPCI
 .for var in ${_MKVARS.yes}
 ${var}?=	yes
 .endfor
@@ -788,10 +763,11 @@ _MKVARS.no= \
 	MKMANDOC MKMANZ MKOBJDIRS \
 	MKPCC MKPCCCMDS \
 	MKSOFTFLOAT MKSTRIPIDENT \
-	MKUNPRIVED MKUPDATE MKX11 MKZFS MKBSDTAR
+	MKUNPRIVED MKUPDATE MKX11 MKZFS MKBSDTAR \
+	MKARZERO
 #MINIX-specific vars
 _MKVARS.no+= \
-	MKIMAGEONLY MKSMALL
+	MKIMAGEONLY MKSMALL USETOOLS
 .for var in ${_MKVARS.no}
 ${var}?=no
 .endfor
@@ -906,7 +882,7 @@ ${var}?= no
 #
 .for var in USE_HESIOD USE_INET6 USE_KERBEROS USE_LDAP USE_PAM USE_YP \
 USE_WATCHDOG USE_ACPI USE_APIC USE_MCONTEXT USE_DEBUGREG USE_SYSDEBUG \
-USE_LIVEUPDATE USE_STATECTL USE_TRACE
+USE_LIVEUPDATE USE_STATECTL USE_TRACE USE_PCI
 .if (${${var:S/USE_/MK/}} == "no")
 ${var}:= no
 .else

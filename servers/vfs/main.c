@@ -79,6 +79,9 @@ int main(void)
 
   printf("Started VFS: %d worker thread(s)\n", NR_WTHREADS);
 
+  if (OK != (sys_getkinfo(&kinfo)))
+	panic("couldn't get kernel kinfo");
+
   /* This is the main loop that gets work, processes it, and sends replies. */
   while (TRUE) {
 	yield_all();	/* let other threads run */
@@ -539,7 +542,7 @@ static int sef_cb_init_fresh(int UNUSED(type), sef_init_info_t *info)
 
   /* Map all the services in the boot image. */
   if ((s = sys_safecopyfrom(RS_PROC_NR, info->rproctab_gid, 0,
-			    (vir_bytes) rprocpub, sizeof(rprocpub), S)) != OK){
+			    (vir_bytes) rprocpub, sizeof(rprocpub))) != OK){
 	panic("sys_safecopyfrom failed: %d", s);
   }
   for (i = 0; i < NR_BOOT_PROCS; i++) {
@@ -735,7 +738,7 @@ static void get_work()
 	}
 
 	proc_p = _ENDPOINT_P(m_in.m_source);
-	if (proc_p < 0) fp = NULL;
+	if (proc_p < 0 || proc_p >= NR_PROCS) fp = NULL;
 	else fp = &fproc[proc_p];
 
 	if (m_in.m_type == EDEADSRCDST) return;	/* Failed 'sendrec' */
@@ -839,7 +842,13 @@ static void service_pm_postponed(void)
 
 		proc_e = job_m_in.PM_PROC;
 		traced_proc_e = job_m_in.PM_TRACED_PROC;
-		term_signal = job_m_in.PM_TERM_SIG;
+		if(job_m_in.PM_PROC != job_m_in.PM_TRACED_PROC) {
+			/* dumpcore request */
+			term_signal = 0;
+		} else {
+			/* dumpcore on exit */
+			term_signal = job_m_in.PM_TERM_SIG;
+		}
 		core_path = (vir_bytes) job_m_in.PM_PATH;
 
 		r = pm_dumpcore(proc_e, term_signal, core_path);
@@ -918,7 +927,12 @@ static void service_pm()
     case PM_DUMPCORE:
 	{
 		endpoint_t proc_e = job_m_in.PM_PROC;
-		okendpt(proc_e, &slot);
+
+		if(isokendpt(proc_e, &slot) != OK) {
+			printf("VFS: proc ep %d not ok\n", proc_e);
+			return;
+		}
+
 		fp = &fproc[slot];
 
 		if (fp->fp_flags & FP_PENDING) {

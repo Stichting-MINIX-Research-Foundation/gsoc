@@ -1500,7 +1500,6 @@ static int setup_dma(
 	int i, j, r;
 	u32_t v;
 	struct wini *wn = w_wn;
-	int verbose = 0;
 
 	/* First try direct scatter/gather to the supplied buffers */
 	size= *sizep;
@@ -1508,16 +1507,17 @@ static int setup_dma(
 	j= 0;	/* prdt index */
 	offset= 0;	/* Offset in current iov */
 
-	if(verbose)
-		printf("at_wini: setup_dma: proc_nr %d\n", proc_nr);
+#if VERBOSE_DMA
+	printf("at_wini: setup_dma: proc_nr %d\n", proc_nr);
+#endif
 
 	while (size > 0)
 	{
-		if(verbose)  {
-			printf(
+#if VERBOSE_DMA
+		printf(
 	"at_wini: setup_dma: iov[%d]: addr 0x%lx, size %ld offset %d, size %d\n",
 			i, iov[i].iov_addr, iov[i].iov_size, offset, size);
-		}
+#endif
 			
 		n= iov[i].iov_size-offset;
 		if (n > size)
@@ -1580,14 +1580,14 @@ static int setup_dma(
 		panic("bad prdt index: %d", j);
 	prdt[j-1].prdte_flags |= PRDTE_FL_EOT;
 
-	if(verbose) {
-		printf("dma not bad\n");
-		for (i= 0; i<j; i++) {
-			printf("prdt[%d]: base 0x%lx, size %d, flags 0x%x\n",
-				i, prdt[i].prdte_base, prdt[i].prdte_count,
-				prdt[i].prdte_flags);
-		}
+#if VERBOSE_DMA
+	printf("dma not bad\n");
+	for (i= 0; i<j; i++) {
+		printf("prdt[%d]: base 0x%lx, size %d, flags 0x%x\n",
+			i, prdt[i].prdte_base, prdt[i].prdte_count,
+			prdt[i].prdte_flags);
 	}
+#endif
 
 	/* Verify that the bus master is not active */
 	r= sys_inb(wn->base_dma + DMA_STATUS, &v);
@@ -2170,9 +2170,7 @@ int do_dma;
    */
   sys_setalarm(wakeup_ticks, 0);
 
-#if _WORD_SIZE > 2
   if (cnt > 0xFFFE) cnt = 0xFFFE;	/* Max data per interrupt. */
-#endif
 
   w_command = ATAPI_PACKETCMD;
   pv_set(outbyte[0], wn->base_cmd + REG_FEAT, do_dma ? FEAT_DMA : 0);
@@ -2213,7 +2211,7 @@ static int w_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 	switch (request) {
 	case DIOCTIMEOUT:
 		r= sys_safecopyfrom(endpt, grant, 0, (vir_bytes)&timeout,
-			sizeof(timeout), D);
+			sizeof(timeout));
 
 		if(r != OK)
 		    return r;
@@ -2244,7 +2242,7 @@ static int w_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 			}
 	
 			r= sys_safecopyto(endpt, grant, 0, (vir_bytes)&prev,
-				sizeof(prev), D);
+				sizeof(prev));
 
 			if(r != OK)
 				return r;
@@ -2256,7 +2254,7 @@ static int w_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 		if (w_prepare(minor) == NULL) return ENXIO;
 		count = w_wn->open_ct;
 		r= sys_safecopyto(endpt, grant, 0, (vir_bytes)&count,
-			sizeof(count), D);
+			sizeof(count));
 
 		if(r != OK)
 			return r;
@@ -2321,8 +2319,8 @@ static void ack_irqs(unsigned int irqs)
 }
 
 
-#define STSTR(a) if (status & STATUS_ ## a) { strcat(str, #a); strcat(str, " "); }
-#define ERRSTR(a) if (e & ERROR_ ## a) { strcat(str, #a); strcat(str, " "); }
+#define STSTR(a) if (status & STATUS_ ## a) strlcat(str, #a " ", sizeof(str));
+#define ERRSTR(a) if (e & ERROR_ ## a) strlcat(str, #a " ", sizeof(str));
 static char *strstatus(int status)
 {
 	static char str[200];

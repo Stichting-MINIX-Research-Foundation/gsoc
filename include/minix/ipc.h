@@ -46,7 +46,7 @@ typedef struct {
 	mess_9 m_m9;
 	mess_10 m_m10;
   } m_u;
-} message;
+} message __aligned(16);
 
 /* The following defines provide names for useful members. */
 #define m1_i1  m_u.m_m1.m1i1
@@ -168,6 +168,7 @@ int receive(endpoint_t src, message *m_ptr, int *status_ptr);
 int send(endpoint_t dest, message *m_ptr);
 int sendnb(endpoint_t dest, message *m_ptr);
 int senda(asynmsg_t *table, size_t count);
+int _minix_kernel_info_struct(struct minix_kerninfo **);
 
 int _do_kernel_call(message *m_ptr);
 

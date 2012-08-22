@@ -90,18 +90,11 @@ int main()
 
 	/* Check for system notifications first. Special cases. */
 	if (is_ipc_notify(ipc_status)) {
-		switch(who_p) {
-			case CLOCK:
-				expire_timers(m_in.NOTIFY_TIMESTAMP);
-				result = SUSPEND;	/* don't reply */
-				break;
-			default :
-				/* ignore notify() from unknown sender */
-				result = SUSPEND;
+		if (who_p == CLOCK) {
+			expire_timers(m_in.NOTIFY_TIMESTAMP);
 		}
 
 		/* done, send reply and continue */
-		if (result != SUSPEND) setreply(who_p, result);
 		sendreply();
 		continue;
 	}
@@ -241,7 +234,7 @@ static int sef_cb_init_fresh(int UNUSED(type), sef_init_info_t *UNUSED(info))
 
 		/* Set process details found in the image table. */
 		rmp = &mproc[ip->proc_nr];	
-  		strncpy(rmp->mp_name, ip->proc_name, PROC_NAME_LEN); 
+  		strlcpy(rmp->mp_name, ip->proc_name, PROC_NAME_LEN); 
   		(void) sigemptyset(&rmp->mp_ignore);	
   		(void) sigemptyset(&rmp->mp_sigmask);
   		(void) sigemptyset(&rmp->mp_catch);
@@ -292,9 +285,11 @@ static int sef_cb_init_fresh(int UNUSED(type), sef_init_info_t *UNUSED(info))
   if (sendrec(VFS_PROC_NR, &mess) != OK || mess.m_type != OK)
 	panic("can't sync up with VFS");
 
-#if (CHIP == INTEL)
+#if defined(__i386__)
         uts_val.machine[0] = 'i';
         strcpy(uts_val.machine + 1, itoa(getprocessor()));
+#elif defined(__arm__)
+        strcpy(uts_val.machine, "arm");
 #endif  
 
  system_hz = sys_hz();
@@ -399,16 +394,11 @@ static void handle_vfs_reply()
    * Handle its reply first.
    */
   if (call_nr == PM_REBOOT_REPLY) {
-	vir_bytes code_addr;
-	size_t code_size;
-
 	/* Ask the kernel to abort. All system services, including
 	 * the PM, will get a HARD_STOP notification. Await the
 	 * notification in the main loop.
 	 */
-	code_addr = (vir_bytes) monitor_code;
-	code_size = strlen(monitor_code) + 1;
-	sys_abort(abort_flag, PM_PROC_NR, code_addr, code_size);
+	sys_abort(RBT_DEFAULT);
 
 	return;
   }

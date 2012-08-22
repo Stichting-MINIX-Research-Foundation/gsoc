@@ -124,10 +124,6 @@ static int rs_memctl_make_vm_instance(struct vmproc *new_vm_vmp)
 
 	this_vm_vmp = &vmproc[VM_PROC_NR];
 
-	/* Copy settings from current VM. */
-	new_vm_vmp->vm_stacktop = this_vm_vmp->vm_stacktop;
-	new_vm_vmp->vm_arch.vm_data_top = this_vm_vmp->vm_arch.vm_data_top;
-
 	/* Pin memory for the new VM instance. */
 	r = map_pin_memory(new_vm_vmp);
 	if(r != OK) {
@@ -184,8 +180,20 @@ int do_rs_memctl(message *m_ptr)
 	switch(req)
 	{
 	case VM_RS_MEM_PIN:
+
+		/* Do not perform VM_RS_MEM_PIN yet - it costs the full
+		 * size of the RS stack (64MB by default) in memory,
+		 * and it's needed for functionality that isn't complete /
+		 * merged in current Minix (surviving VM crashes).
+		 */
+
+#if 0
 		r = map_pin_memory(vmp);
 		return r;
+#else
+		return OK;
+#endif
+
 	case VM_RS_MEM_MAKE_VM:
 		r = rs_memctl_make_vm_instance(vmp);
 		return r;

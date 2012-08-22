@@ -241,7 +241,7 @@ static int sef_cb_init_fresh(int type, sef_init_info_t *UNUSED(info))
 
 	dep = &de_state;
 
-	strcpy(dep->de_name, "dp8390#0");
+	strlcpy(dep->de_name, "dp8390#0", sizeof(dep->de_name));
 	dep->de_name[7] += de_instance;
 
 	/* Announce we are up! */
@@ -331,7 +331,7 @@ static void pci_conf()
 
 	dep= &de_state;
 
-	strcpy(envvar, "DPETH0");
+	strlcpy(envvar, "DPETH0", sizeof(envvar));
 	envvar[5] += de_instance;
 	if (!(dep->de_pci= env_prefix(envvar, "pci")))
 		return;	/* no PCI config */
@@ -764,7 +764,7 @@ dpeth_t *dep;
 	long v;
 
 	/* User defined ethernet address? */
-	strcpy(eakey, "DPETH0_EA");
+	strlcpy(eakey, "DPETH0_EA", sizeof(eakey));
 	eakey[5] += de_instance;
 
 	for (i= 0; i < 6; i++)
@@ -1195,7 +1195,7 @@ vir_bytes count;
 
 		r= sys_safecopyfrom(iovp->iod_proc_nr,
 			iovp->iod_iovec[i].iov_grant, offset,
-			vir_hw, bytes, D);
+			vir_hw, bytes);
 		if (r != OK) {
 			panic("dp_user2nic_s: sys_safecopyfrom failed: %d", r);
 		}
@@ -1320,7 +1320,7 @@ vir_bytes count;
 		if (odd_byte)
 		{
 			r= sys_safecopyfrom(user_proc, gid, offset, 
-				(vir_bytes)&two_bytes[1], 1, D);
+				(vir_bytes)&two_bytes[1], 1);
 			if (r != OK) { 
 				panic("dp_pio16_user2nic: sys_safecopyfrom failed: %d", r);
 			}
@@ -1348,7 +1348,7 @@ vir_bytes count;
 		{
 			assert(bytes == 1);
 			r= sys_safecopyfrom(user_proc, gid, offset,
-				(vir_bytes)&two_bytes[0], 1, D);
+				(vir_bytes)&two_bytes[0], 1);
 			if (r != OK) {
 				panic("dp_pio16_user2nic: sys_safecopyfrom failed: %d", r);
 			}
@@ -1411,7 +1411,7 @@ vir_bytes count;
 
 		r= sys_safecopyto(iovp->iod_proc_nr,
 			iovp->iod_iovec[i].iov_grant, offset,
-			vir_hw, bytes, D);
+			vir_hw, bytes);
 		if (r != OK)
 			panic("dp_nic2user_s: sys_safecopyto failed: %d", r);
 
@@ -1521,7 +1521,7 @@ vir_bytes count;
 		if (odd_byte)
 		{
 			r= sys_safecopyto(user_proc, gid, offset,
-				(vir_bytes)&two_bytes[1], 1, D);
+				(vir_bytes)&two_bytes[1], 1);
 			if (r != OK) {
 				panic("dp_pio16_nic2user: sys_safecopyto failed: %d", r);
 			}
@@ -1550,7 +1550,7 @@ vir_bytes count;
 			assert(bytes == 1);
 			*(u16_t *)two_bytes= inw(dep->de_data_port);
 			r= sys_safecopyto(user_proc, gid, offset,
-				(vir_bytes)&two_bytes[0], 1, D);
+				(vir_bytes)&two_bytes[0], 1);
 			if (r != OK)
 			{
 				panic("dp_pio16_nic2user: sys_safecopyto failed: %d",
@@ -1640,7 +1640,7 @@ dp_conf_t *dcp;
 	}
 #endif
 
-	strcpy(eckey, "DPETH0");
+	strlcpy(eckey, "DPETH0", sizeof(eckey));
 	eckey[5] += de_instance;
 
 	/* Get the default settings and modify them from the environment. */
@@ -1774,7 +1774,7 @@ void *loc_addr;
 	int r;
 
 	r= sys_safecopyfrom(user_proc, grant, offset,
-		(vir_bytes)loc_addr, count, D);
+		(vir_bytes)loc_addr, count);
 	if (r != OK)
 		panic("get_userdata: sys_safecopyfrom failed: %d", r);
 }
@@ -1791,7 +1791,7 @@ void *loc_addr;
 	int r;
 
 	r= sys_safecopyto(user_proc, grant, 0, (vir_bytes)loc_addr, 
-		count, D);
+		count);
 	if (r != OK)
 		panic("put_userdata: sys_safecopyto failed: %d", r);
 }

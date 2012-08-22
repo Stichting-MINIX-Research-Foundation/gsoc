@@ -188,8 +188,10 @@ int fs_getdents(void) {
 			done = TRUE;
 			release_dir_record(dir_tmp);
 		} else { 	/* The dir record is valid. Copy data... */
-			if (dir_tmp->file_id[0] == 0) strcpy(name,".");
-			else if (dir_tmp->file_id[0] == 1) strcpy(name,"..");
+			if (dir_tmp->file_id[0] == 0)
+				strlcpy(name, ".", NAME_MAX + 1);
+			else if (dir_tmp->file_id[0] == 1)
+				strlcpy(name, "..", NAME_MAX + 1);
 			else {
 				/* Extract the name from the field file_id */
 				strncpy(name, dir_tmp->file_id,
@@ -211,7 +213,7 @@ int fs_getdents(void) {
 				continue;
 			}
 
-			strcpy(name_old,name);
+			strlcpy(name_old, name, NAME_MAX + 1);
 
 			/* Compute the length of the name */
 			cp = memchr(name, '\0', NAME_MAX);
@@ -228,7 +230,7 @@ int fs_getdents(void) {
 			 * and start from the beginning. */
 			if (tmpbuf_offset + reclen > GETDENTS_BUFSIZ) {
 				r = sys_safecopyto(VFS_PROC_NR, gid, userbuf_off, 
-				    (vir_bytes)getdents_buf, tmpbuf_offset, D);
+				    (vir_bytes)getdents_buf, tmpbuf_offset);
 
 				if (r != OK)
 					panic("fs_getdents: sys_safecopyto failed: %d", r);
@@ -262,7 +264,7 @@ int fs_getdents(void) {
 
   if (tmpbuf_offset != 0) {
 	r = sys_safecopyto(VFS_PROC_NR, gid, userbuf_off,
-			   (vir_bytes) getdents_buf, tmpbuf_offset, D);
+			   (vir_bytes) getdents_buf, tmpbuf_offset);
 	if (r != OK)
 		panic("fs_getdents: sys_safecopyto failed: %d", r);
  
@@ -326,7 +328,7 @@ int *completed;			/* number of bytes copied */
   }
   
   r = sys_safecopyto(VFS_PROC_NR, gid, buf_off,
-		     (vir_bytes) (bp->b_data+off), (phys_bytes) chunk, D);
+		     (vir_bytes) (bp->b_data+off), (phys_bytes) chunk);
 
   put_block(bp);
 

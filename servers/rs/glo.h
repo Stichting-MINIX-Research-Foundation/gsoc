@@ -8,6 +8,8 @@
 #define EXTERN
 #endif
 
+#include <minix/param.h>
+
 /* The boot image priv table. This table has entries for all system
  * services in the boot image.
  */
@@ -51,6 +53,8 @@ EXTERN int shutting_down;
 EXTERN unsigned system_hz;
 
 EXTERN struct machine machine;		/* machine info */
+
+EXTERN struct kinfo kinfo;     /* kernel information */
 
 #endif /* RS_GLO_H */
 

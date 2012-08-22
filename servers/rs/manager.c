@@ -681,6 +681,7 @@ struct rproc *rp;				/* pointer to service slot */
       }
   }
 
+#if USE_PCI
   /* If PCI properties are set, inform the PCI driver about the new service. */
   if(rpub->pci_acl.rsp_nr_device || rpub->pci_acl.rsp_nr_class) {
       pci_acl = rpub->pci_acl;
@@ -692,6 +693,7 @@ struct rproc *rp;				/* pointer to service slot */
           return kill_service(rp, "pci_set_acl call failed", r);
       }
   }
+#endif /* USE_PCI */
 
   if (rpub->devman_id != 0) {
 	  r = ds_retrieve_label_endpt("devman",&ep);
@@ -739,6 +741,7 @@ struct rproc *rp;				/* pointer to service slot */
 
   /* No need to inform VFS and VM, cleanup is done on exit automatically. */
 
+#if USE_PCI
   /* If PCI properties are set, inform the PCI driver. */
   if(rpub->pci_acl.rsp_nr_device || rpub->pci_acl.rsp_nr_class) {
       r = pci_del_acl(rpub->endpoint);
@@ -747,6 +750,7 @@ struct rproc *rp;				/* pointer to service slot */
           result = r;
       }
   }
+#endif /* USE_PCI */
 
   if (rpub->devman_id != 0) {
 	  r = ds_retrieve_label_endpt("devman",&ep);
@@ -1018,7 +1022,8 @@ void terminate_service(struct rproc *rp)
   if (rp->r_flags & RS_EXITING) {
       /* If a core system service is exiting, we are in trouble. */
       if (rp->r_pub->sys_flags & SF_CORE_SRV && !shutting_down) {
-          panic("core system service died: %s", srv_to_string(rp));
+          printf("core system service died: %s\n", srv_to_string(rp));
+	  _exit(1);
       }
 
       /* See if a late reply has to be sent. */

@@ -242,7 +242,7 @@ static int atapi_exec(struct port_state *ps, int cmd,
 	/* Execute an ATAPI command. Return OK or error.
 	 */
 	cmd_fis_t fis;
-	prd_t prd;
+	prd_t prd[1];
 	int nr_prds = 0;
 
 	assert(size <= AHCI_TMP_SIZE);
@@ -258,13 +258,13 @@ static int atapi_exec(struct port_state *ps, int cmd,
 		if (!write && (ps->flags & FLAG_USE_DMADIR))
 			fis.cf_feat |= ATA_FEAT_PACKET_DMADIR;
 
-		prd.vp_addr = ps->tmp_phys;
-		prd.vp_size = size;
+		prd[0].vp_addr = ps->tmp_phys;
+		prd[0].vp_size = size;
 		nr_prds++;
 	}
 
 	/* Start the command, and wait for it to complete or fail. */
-	port_set_cmd(ps, cmd, &fis, packet, &prd, nr_prds, write);
+	port_set_cmd(ps, cmd, &fis, packet, prd, nr_prds, write);
 
 	return port_exec(ps, cmd, ahci_command_timeout);
 }
@@ -2196,7 +2196,7 @@ static void ahci_set_mapping(void)
 	/* See if the user specified a custom mapping. Unlike all other
 	 * configuration options, this is a per-instance setting.
 	 */
-	strcpy(key, "ahci0_map");
+	strlcpy(key, "ahci0_map", sizeof(key));
 	key[4] += ahci_instance;
 
 	if (env_get_param(key, val, sizeof(val)) == OK) {
@@ -2563,7 +2563,7 @@ static int ahci_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 
 	case DIOCOPENCT:
 		return sys_safecopyto(endpt, grant, 0,
-			(vir_bytes) &ps->open_count, sizeof(ps->open_count), D);
+			(vir_bytes) &ps->open_count, sizeof(ps->open_count));
 
 	case DIOCFLUSH:
 		if (ps->state != STATE_GOOD_DEV || (ps->flags & FLAG_BARRIER))
@@ -2576,7 +2576,7 @@ static int ahci_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 			return EIO;
 
 		if ((r = sys_safecopyfrom(endpt, grant, 0, (vir_bytes) &val,
-			sizeof(val), D)) != OK)
+			sizeof(val))) != OK)
 			return r;
 
 		return gen_set_wcache(ps, val);
@@ -2589,7 +2589,7 @@ static int ahci_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 			return r;
 
 		return sys_safecopyto(endpt, grant, 0, (vir_bytes) &val,
-			sizeof(val), D);
+			sizeof(val));
 	}
 
 	return EINVAL;

@@ -17,7 +17,7 @@ INCS+=	ansi.h atomic.h \
 	fcntl.h fd_set.h featuretest.h file.h \
 	float_ieee754.h gcq.h gmon.h hash.h \
 	ieee754.h inttypes.h ioctl.h ipc.h \
-	localedef.h \
+	localedef.h lock.h \
 	md4.h md5.h \
 	mman.h mount.h \
 	null.h \
@@ -27,7 +27,7 @@ INCS+=	ansi.h atomic.h \
 	rbtree.h resource.h rmd160.h \
 	select.h sha1.h \
 	sha2.h siginfo.h signal.h sigtypes.h \
-	reboot.h sem.h shm.h socket.h \
+	ras.h reboot.h sem.h shm.h socket.h \
 	stat.h statvfs.h \
 	sysctl.h stdint.h \
 	syslimits.h syslog.h \
@@ -55,7 +55,7 @@ namei: namei.src gennameih.awk
 	${TOOL_AWK} -f gennameih.awk < namei.src
 
 .include <bsd.own.mk>
-.include "${MINIXSRCDIR}/common/include/sys/Makefile.inc"
+.include "${NETBSDSRCDIR}/common/include/sys/Makefile.inc"
 
 .include <bsd.files.mk>
 .include <bsd.kinc.mk>

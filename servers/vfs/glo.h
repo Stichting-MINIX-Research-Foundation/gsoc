@@ -7,6 +7,8 @@
 #define EXTERN
 #endif
 
+#include <minix/param.h>
+
 /* File System global variables */
 EXTERN struct fproc *fp;	/* pointer to caller's fproc struct */
 EXTERN int susp_count;		/* number of procs suspended on pipe */
@@ -51,5 +53,7 @@ EXTERN int err_code;		/* temporary storage for error number */
 extern int(*call_vec[]) (void);
 extern int(*pfs_call_vec[]) (void);
 extern char mode_map[];	/* mapping from O_ACCMODE mask to R_BIT/W_BIT flags */
+
+EXTERN struct kinfo kinfo;     /* kernel information */
 
 #endif

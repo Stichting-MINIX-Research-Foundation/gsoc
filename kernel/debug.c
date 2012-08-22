@@ -4,8 +4,6 @@
  */
 
 #include "kernel.h"
-#include "proc.h"
-#include "debug.h"
 
 #include <minix/callnr.h>
 #include <minix/sysutil.h>
@@ -92,7 +90,6 @@ int runqueues_ok_cpu(unsigned cpu)
     }
   }	
 
-  l = 0;
   for (xp = BEG_PROC_ADDR; xp < END_PROC_ADDR; ++xp) {
 	if(!proc_ptr_ok(xp)) {
 		printf("xp bogus pointer in proc table\n");
@@ -103,10 +100,6 @@ int runqueues_ok_cpu(unsigned cpu)
 	if(proc_is_runnable(xp) && !xp->p_found) {
 		printf("sched error: ready proc %d not on queue\n", xp->p_nr);
 		return 0;
-		if (l++ > MAX_LOOP) {
-			printf("loop in debug.c?\n"); 
-			return 0;
-		}
 	}
   }
 
@@ -147,7 +140,7 @@ rtsflagstr(const u32_t flags)
 	static char str[100];
 	str[0] = '\0';
 
-#define FLAG(n) if(flags & n) { strcat(str, #n " "); }
+#define FLAG(n) if(flags & n) { strlcat(str, #n " ", sizeof(str)); }
 
 	FLAG(RTS_SLOT_FREE);
 	FLAG(RTS_PROC_STOP);
@@ -175,7 +168,6 @@ miscflagstr(const u32_t flags)
 	str[0] = '\0';
 
 	FLAG(MF_REPLY_PEND);
-	FLAG(MF_FULLVM);
 	FLAG(MF_DELIVERMSG);
 	FLAG(MF_KCALL_RESUME);
 

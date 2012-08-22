@@ -34,7 +34,7 @@ int do_privctl(struct proc * caller, message * m_ptr)
   int ipc_to_m, kcalls;
   int i, r;
   struct io_range io_range;
-  struct mem_range mem_range;
+  struct minix_mem_range mem_range;
   struct priv priv;
   int irq;
 
@@ -44,7 +44,7 @@ int do_privctl(struct proc * caller, message * m_ptr)
    * forks. 
    */
   if (! (priv(caller)->s_flags & SYS_PROC)) return(EPERM);
-  if(m_ptr->CTL_ENDPT == SELF) proc_nr = _ENDPOINT_P(caller->p_endpoint);
+  if(m_ptr->CTL_ENDPT == SELF) okendpt(caller->p_endpoint, &proc_nr);
   else if(!isokendpt(m_ptr->CTL_ENDPT, &proc_nr)) return(EINVAL);
   rp = proc_addr(proc_nr);
 

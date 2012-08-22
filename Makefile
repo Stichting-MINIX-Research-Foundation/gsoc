@@ -2,7 +2,7 @@
 
 .include <bsd.own.mk>
 
-MAKE=make
+MAKE?=make
 
 usage:
 	@echo "" 
@@ -17,7 +17,7 @@ usage:
 	@echo "	make install       # Compile and install commands"
 	@echo "	make clean         # Remove all compiler results"
 	@echo "" 
-	@echo "Run 'make' in tools/ to create a new MINIX configuration." 
+	@echo "Run 'make' in releasetools/ to create a new MINIX configuration."
 	@echo "" 
 
 # world has to be able to make a new system, even if there
@@ -27,7 +27,15 @@ usage:
 # etcfiles also creates a directory hierarchy in its
 # 'make install' target.
 # 
+
 # etcfiles has to be done first.
+
+distribution: etcfiles includes mkfiles libraries do-libgcc .WAIT dep-all install etcforce
+
+do-libgcc: .PHONY .MAKE
+	${MAKEDIRTARGET} external/gpl3/gcc/lib/libgcc/libgcc all
+	${MAKEDIRTARGET} external/gpl3/gcc/lib/libgcc/libgcc install
+
 world: mkfiles etcfiles includes libraries dep-all install etcforce
 
 # subdirs where userland utilities and other executables live
@@ -50,6 +58,7 @@ mkfiles: .PHONY .MAKE
 
 includes: .PHONY .MAKE
 	${MAKEDIRTARGET} include includes
+	${INSTALL_DIR} ${DESTDIR}/usr/include/g++
 	${MAKEDIRTARGET} lib includes
 	${MAKEDIRTARGET} sys includes
 	${MAKEDIRTARGET} external includes
@@ -81,14 +90,14 @@ install: .PHONY .MAKE
 	${MAKEDIRTARGET} man install
 	${MAKEDIRTARGET} man makedb
 	${MAKEDIRTARGET} share install
-	${MAKEDIRTARGET} tools install
+	${MAKEDIRTARGET} releasetools install
 
 clean: mkfiles .PHONY .MAKE
 .for dir in $(CMDSDIRS)
 	${MAKEDIRTARGET} ${dir} clean
 .endfor
 	${MAKEDIRTARGET} sys clean
-	${MAKEDIRTARGET} tools clean
+	${MAKEDIRTARGET} releasetools clean
 	${MAKEDIRTARGET} lib clean
 	${MAKEDIRTARGET} test clean
 
@@ -100,7 +109,7 @@ cleandepend: mkfiles .PHONY .MAKE
 
 # Shorthands
 all: .PHONY .MAKE dep-all
-	${MAKEDIRTARGET} tools all
+	${MAKEDIRTARGET} releasetools all
 
 # Obsolete targets
 elf-libraries: .PHONY

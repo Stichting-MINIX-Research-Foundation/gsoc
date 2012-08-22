@@ -12,7 +12,7 @@ MAN=
 
 BINDIR?= /usr/sbin
 
-CPPFLAGS.random.c+=	-I${MINIXSRCDIR}
+CPPFLAGS.random.c+=	-I${NETBSDSRCDIR}
 
 .include <minix.service.mk>
 

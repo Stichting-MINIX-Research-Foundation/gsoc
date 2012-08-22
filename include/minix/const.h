@@ -1,9 +1,7 @@
 #ifndef _MINIX_CONST_H
 #define _MINIX_CONST_H
 
-#ifndef _MINIX_CHIP
-#error _MINIX_CHIP is not defined
-#endif
+#include <machine/archconst.h>
 
 /* The UNUSED annotation tells the compiler or lint not to complain
  * about an unused variable or function parameter.
@@ -37,8 +35,6 @@
 #define TRUE               1	/* used for turning integers into Booleans */
 #define FALSE              0	/* used for turning integers into Booleans */
 
-#define DEFAULT_HZ        60	/* clock freq (software settable on IBM-PC) */
-
 #define SUPER_USER ((uid_t) 0)	/* uid_t of superuser */
 
 #include <sys/null.h>      /* NULL Pointer */
@@ -57,27 +53,20 @@
 #define SEGMENT_TYPE  0xFF00	/* bit mask to get segment type */
 #define SEGMENT_INDEX 0x00FF	/* bit mask to get segment index */
 
-#define LOCAL_SEG     0x0000	/* flags indicating local memory segment */
-#define NR_LOCAL_SEGS      3	/* # local segments per process (fixed) */
-#define T                  0	/* proc[i].mem_map[T] is for text */
-#define D                  1	/* proc[i].mem_map[D] is for data */
-#define S                  2	/* proc[i].mem_map[S] is for stack */
+#define D_OBSOLETE         1	/* proc[i].mem_map[D] is for data */
 
 #define PHYS_SEG      0x0400	/* flag indicating entire physical memory */
 
 #define LOCAL_VM_SEG  0x1000	/* same as LOCAL_SEG, but with vm lookup */
-#define VM_D		(LOCAL_VM_SEG | D)
-#define VM_T		(LOCAL_VM_SEG | T)
 #define MEM_GRANT	3
+#define VIR_ADDR	1
+#define VM_D		(LOCAL_VM_SEG | VIR_ADDR)
 #define VM_GRANT	(LOCAL_VM_SEG | MEM_GRANT)
 
 /* Labels used to disable code sections for different reasons. */
 #define DEAD_CODE	   0	/* unused code in normal configuration */
 #define FUTURE_CODE	   0	/* new code to be activated + tested later */
 #define TEMP_CODE	   1	/* active code to be removed later */
-
-/* Process name length in the PM process table, including '\0'. */
-#define PROC_NAME_LEN	16
 
 /* Miscellaneous */
 #define BYTE            0377	/* mask for 8 bits */
@@ -86,11 +75,11 @@
 #define HAVE_SCATTERED_IO  1	/* scattered I/O is now standard */
 
 /* Memory is allocated in clicks. */
-#if (_MINIX_CHIP == _CHIP_INTEL)
+#if defined(__i386__) || defined(__arm__)
 #define CLICK_SIZE      4096	/* unit in which memory is allocated */
 #define CLICK_SHIFT       12	/* log2 of CLICK_SIZE */
 #else
-#error No reasonable CHIP setting.
+#error Unsupported arch
 #endif
 
 /* Click alignment macros. */
@@ -156,9 +145,6 @@
 
 #define SERVARNAME		"cttyline"
 #define SERBAUDVARNAME		"cttybaud"
-
-/* Bits for the system property flags in boot image processes. */
-#define PROC_FULLVM    0x100    /* VM sets and manages full pagetable */
 
 /* Bits for s_flags in the privilege structure. */
 #define PREEMPTIBLE     0x002   /* kernel tasks are not preemptible */
