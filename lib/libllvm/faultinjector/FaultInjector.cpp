@@ -138,12 +138,14 @@ namespace llvm{
             ICmpInst* do_rnd = new ICmpInst(*NewFirstBB, ICmpInst::ICMP_EQ, load_enabled_var, Constant0, "");
             BranchInst::Create(OldFirstBB, RndBB, do_rnd, NewFirstBB);
 
-            /* loop through all cloned basic blocks, and switch operands of binary instructions */
+            /* loop through all cloned basic blocks */
             for(std::vector<BasicBlock>::size_type i = 0; i <  Clones.size(); i++){
                 BasicBlock *BB = Clones[i];
+                /* For each basic block, loop through all instructions */
                 for (BasicBlock::iterator II = BB->begin(); II != BB->end(); ++II){
                     Instruction *inst = &(*II);
                     if (SwapBinary){
+                        /* switch operands of binary instructions */
                         if(BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
                             Value *tmp = Op->getOperand(0);
                             Op->setOperand(0, Op->getOperand(1));
