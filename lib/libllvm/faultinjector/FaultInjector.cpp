@@ -22,8 +22,18 @@ using namespace llvm;
 
 static cl::opt<std::string>
 FaultFunctions("fault-functions",
-        cl::desc("specify comma separated list of functions to be instrumented (empty = all functions)"),
+        cl::desc("Fault Injector: specify comma separated list of functions to be instrumented (empty = all functions)"),
         cl::init(""), cl::NotHidden, cl::ValueRequired);
+
+static cl::opt<int>
+Pct("fault-pct",
+        cl::desc("Fault Injector: fault probability (0 - 100) "),
+        cl::init(100), cl::NotHidden, cl::ValueRequired);
+
+static cl::opt<bool>
+SwapBinary("fault-swap-binary",
+        cl::desc("Fault Injector: Swaps binary operands"),
+        cl::init(true), cl::NotHidden, cl::ValueRequired);
 
 
 namespace llvm{
@@ -48,8 +58,8 @@ namespace llvm{
 #endif                    
 
         ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
-        ConstantInt* Constant50 = ConstantInt::get(M.getContext(), APInt(32, StringRef("50"), 10));
         ConstantInt* Constant100 = ConstantInt::get(M.getContext(), APInt(32, StringRef("100"), 10));
+        ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, Pct, 10));
 
 
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
@@ -118,9 +128,9 @@ namespace llvm{
             /* take rand() % 100 */
             BinaryOperator *Remainder = BinaryOperator::Create(Instruction::SRem, RandFuncCall, Constant100, "", RndBB); 
             /* remainder < tresshold? */
-            ICmpInst* do_cloned = new ICmpInst(*RndBB, ICmpInst::ICMP_ULE, Remainder, Constant50, "");
+            ICmpInst* do_cloned = new ICmpInst(*RndBB, ICmpInst::ICMP_ULE, Remainder, ConstantFaultPct, "");
             /* goto first cloned block or first original block */
-            BranchInst::Create(OldFirstBB, ClonedOldFirstBB, do_cloned, RndBB);
+            BranchInst::Create(ClonedOldFirstBB, OldFirstBB, do_cloned, RndBB);
 
             /* branch to original blocks or cloned blocks, based on value of enabled_var */
             LoadInst* load_enabled_var = new LoadInst(enabled_var, "", false, NewFirstBB);
@@ -133,11 +143,12 @@ namespace llvm{
                 BasicBlock *BB = Clones[i];
                 for (BasicBlock::iterator II = BB->begin(); II != BB->end(); ++II){
                     Instruction *inst = &(*II);
-                    if (BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
-                       //Op->getOperand(0).swap(Op->getOperand(1));
-                       Value *tmp = Op->getOperand(0);
-                       Op->setOperand(0, Op->getOperand(1));
-                       Op->setOperand(1, tmp);
+                    if (SwapBinary){
+                        if(BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
+                            Value *tmp = Op->getOperand(0);
+                            Op->setOperand(0, Op->getOperand(1));
+                            Op->setOperand(1, tmp);
+                        }
                     }
                 }
             }

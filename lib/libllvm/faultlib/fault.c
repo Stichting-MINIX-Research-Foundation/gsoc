@@ -13,7 +13,8 @@ volatile int magic_ensure_linkage = ((int) &rand);
 int faultinjection_enabled = 0, lh=4, rh=3;
 
 void fault_test(){
-    printf("fault_test: %d\n", lh-rh);
+    int my_lh=4, my_rh=3;
+    printf("fault_test: %d\n", my_lh-my_rh);
 }
 
 void fault_switch(int enable){
