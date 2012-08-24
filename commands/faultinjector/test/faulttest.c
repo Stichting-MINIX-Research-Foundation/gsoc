@@ -7,7 +7,7 @@
 #include <sys/time.h>
 
 int main(){
-    message m1, m2;
+    message m;
 
     /* seed rand() */
     struct timeval tp;
@@ -15,12 +15,16 @@ int main(){
     srand((int) tp.tv_usec);
 
     /* turn on fault execution */
-    m1.FAULT_INJECTOR_CMD = FAULT_INJECTOR_CMD_ON;
-    do_fault_injector_request_impl(&m1);
+    m.FAULT_INJECTOR_CMD = FAULT_INJECTOR_CMD_ON;
+    do_fault_injector_request_impl(&m);
 
     /* run fault test suite */
-    m2.FAULT_INJECTOR_CMD = FAULT_INJECTOR_CMD_TEST;
-    do_fault_injector_request_impl(&m2);
+    m.FAULT_INJECTOR_CMD = FAULT_INJECTOR_CMD_TEST;
+    do_fault_injector_request_impl(&m);
+
+    /* print stats */
+    m.FAULT_INJECTOR_CMD = FAULT_INJECTOR_CMD_PRINT_STATS;
+    do_fault_injector_request_impl(&m);
 
     exit(0);
 }

@@ -48,6 +48,10 @@ namespace llvm{
         Module::FunctionListType &functionList = M.getFunctionList();
         SmallVectorImpl<BasicBlock*> Clones(0);
 
+        ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
+        ConstantInt* Constant100 = ConstantInt::get(M.getContext(), APInt(32, StringRef("100"), 10));
+        ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, Pct, 10));
+
         GlobalVariable* enabled_var = M.getNamedGlobal("faultinjection_enabled");
         if(!enabled_var) {
             errs() << "Error: no faultinjection_enabled variable found";
@@ -57,10 +61,22 @@ namespace llvm{
         enabled_var->setInitializer(ConstantInt::get(M.getContext(), APInt(32, 1)));
 #endif                    
 
-        ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
-        ConstantInt* Constant100 = ConstantInt::get(M.getContext(), APInt(32, StringRef("100"), 10));
-        ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, Pct, 10));
+        GlobalVariable* fault_count_swap_var = M.getNamedGlobal("fault_count_swap");
+        GlobalVariable* fault_count_no_load_var = M.getNamedGlobal("fault_count_no_load");
+        GlobalVariable* fault_count_no_store_var = M.getNamedGlobal("fault_count_no_store");
+        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_no_store_var) {
+            errs() << "Error: no fault counter variable found";
+            exit(1);
+        }
 
+        GlobalVariable* GV_int_0 = new GlobalVariable(/*Module=*/M, 
+                /*Type=*/IntegerType::get(M.getContext(), 32),
+                /*isConstant=*/false,
+                /*Linkage=*/GlobalValue::ExternalLinkage,
+                /*Initializer=*/0, // has initializer, specified below
+                /*Name=*/"GV_int_0");
+        GV_int_0->setAlignment(4);
+        GV_int_0->setInitializer(Constant0);
 
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
             Function *F = it;
@@ -144,42 +160,48 @@ namespace llvm{
                 /* For each basic block, loop through all instructions */
                 for (BasicBlock::iterator II = BB->begin(); II != BB->end(); ++II){
                     Instruction *inst = &(*II);
+                    errs() << "> ";
+                    inst->print(errs());
+                    errs() << "\n";
+                    bool removed = false;
                     if (SwapBinary){
                         /* switch operands of binary instructions */
                         if(BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
                             Value *tmp = Op->getOperand(0);
                             Op->setOperand(0, Op->getOperand(1));
                             Op->setOperand(1, tmp);
+
+                            count_incr(fault_count_swap_var, Op, M);
+
                         }
                     }
+                    if (1 /* loadNull */){
+                        if(LoadInst *LI = dyn_cast<LoadInst>(inst)){
+                            if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
+                                LI->setOperand(0, GV_int_0);
+                                count_incr(fault_count_no_load_var, LI, M);
+                            }
+                        }
+                    }
+                    if (1 /* delStore */){
+                        if(StoreInst *SI = dyn_cast<StoreInst>(inst)){
+                            --II; /* decrease iterator, so that it can be incremented for the next iteration */
+                            count_incr(fault_count_no_store_var, II, M);
+                            SI->eraseFromParent();
+                            removed=true;
+                        }
+                    }
+                    errs() << "< ";
+                    if(removed){
+                        errs() << "<removed>\n";
+                    }else{
+                        inst->print(errs());
+                        errs() << "\n";
+                    }
+
                 }
             }
 
-#if 0
-            /* Add a printf("cloned\n") call to the first cloned basic block */
-
-            ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(M.getContext(), 8), 8);
-
-            GlobalVariable* gvar_array__str = new GlobalVariable(/*Module=*/M, 
-                    /*Type=*/ArrayTy_0,
-                    /*isConstant=*/true,
-                    /*Linkage=*/GlobalValue::PrivateLinkage,
-                    /*Initializer=*/0, // has initializer, specified below
-                    /*Name=*/".str");
-            gvar_array__str->setAlignment(1);
-
-            Constant* const_array_6 = ConstantArray::get(M.getContext(), "cloned\x0A", true);
-            std::vector<Constant*> const_ptr_7_indices;
-            ConstantInt* const_int32_8 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
-            const_ptr_7_indices.push_back(const_int32_8);
-            const_ptr_7_indices.push_back(const_int32_8);
-            gvar_array__str->setInitializer(const_array_6);
-            Constant* const_ptr_7 = ConstantExpr::getGetElementPtr(gvar_array__str, &const_ptr_7_indices[0], 2, true);
-
-
-            Function* func_printf = M.getFunction("printf");
-            CallInst::Create(func_printf, const_ptr_7, "", ClonedOldFirstBB->begin());
-#endif
         }
 
         return true;

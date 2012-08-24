@@ -8,11 +8,12 @@
 #define CMD_OFF_STR     "off"
 #define CMD_ON_STR      "on"
 #define CMD_TEST_STR    "test"
+#define CMD_PRINT_STATS_STR    "stats"
 
 char *prog_name;
 
 void print_usage(){
-        fprintf(stderr, "Usage: %s <label> (%s|%s|%s)\n", prog_name, CMD_ON_STR, CMD_OFF_STR, CMD_TEST_STR);
+        fprintf(stderr, "Usage: %s <label> (%s|%s|%s|%s)\n", prog_name, CMD_ON_STR, CMD_OFF_STR, CMD_TEST_STR, CMD_PRINT_STATS_STR);
 }
 
 int main(int argc, char *argv[]){
@@ -45,6 +46,8 @@ int main(int argc, char *argv[]){
         cmd = FAULT_INJECTOR_CMD_OFF;
     }else if(!strcmp(cmd_str, CMD_TEST_STR)){
         cmd = FAULT_INJECTOR_CMD_TEST;
+    }else if(!strcmp(cmd_str, CMD_PRINT_STATS_STR)){
+        cmd = FAULT_INJECTOR_CMD_PRINT_STATS;
     }else{
         print_usage();
         return 1;
