@@ -17,6 +17,7 @@
 
 #include "FaultInjector.h"
 #include "FaultUtil.h"
+#include <sys/time.h>
 
 using namespace llvm;
 
@@ -26,9 +27,24 @@ FaultFunctions("fault-functions",
         cl::init(""), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<int>
-Pct("fault-pct",
-        cl::desc("Fault Injector: fault probability (0 - 100) "),
-        cl::init(100), cl::NotHidden, cl::ValueRequired);
+prob_global("fault-prob-global",
+        cl::desc("Fault Injector: global dynamic fault probability (0 - 1000) "),
+        cl::init(1000), cl::NotHidden, cl::ValueRequired);
+
+static cl::opt<int>
+prob_swap("fault-prob-swap",
+        cl::desc("Fault Injector: binary operand swap fault probability (0 - 1000) "),
+        cl::init(1000), cl::NotHidden, cl::ValueRequired);
+
+static cl::opt<int>
+prob_no_load("fault-prob-no-load",
+        cl::desc("Fault Injector: load instruction loading '0' fault probability (0 - 1000) "),
+        cl::init(1000), cl::NotHidden, cl::ValueRequired);
+
+static cl::opt<int>
+prob_no_store("fault-prob-no-store",
+        cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
+        cl::init(1000), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<bool>
 SwapBinary("fault-swap-binary",
@@ -42,6 +58,11 @@ namespace llvm{
 
     bool FaultInjector::runOnModule(Module &M) {
 
+        /* seed rand() */
+        struct timeval tp;
+        gettimeofday(&tp, NULL);
+        srand((int) tp.tv_usec - tp.tv_sec);
+
         std::vector<std::string> FunctionNames(0);
         StringExplode(FaultFunctions, ",", &FunctionNames);
 
@@ -49,8 +70,8 @@ namespace llvm{
         SmallVectorImpl<BasicBlock*> Clones(0);
 
         ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
-        ConstantInt* Constant100 = ConstantInt::get(M.getContext(), APInt(32, StringRef("100"), 10));
-        ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, Pct, 10));
+        ConstantInt* Constant1000 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1000"), 10));
+        ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, prob_global, 10));
 
         GlobalVariable* enabled_var = M.getNamedGlobal("faultinjection_enabled");
         if(!enabled_var) {
@@ -141,8 +162,8 @@ namespace llvm{
             Function *RandFunc = M.getFunction("rand");
             assert(RandFunc);
             CallInst* RandFuncCall = CallInst::Create(RandFunc, "", RndBB);
-            /* take rand() % 100 */
-            BinaryOperator *Remainder = BinaryOperator::Create(Instruction::SRem, RandFuncCall, Constant100, "", RndBB); 
+            /* take rand() % 1000 */
+            BinaryOperator *Remainder = BinaryOperator::Create(Instruction::SRem, RandFuncCall, Constant1000, "", RndBB); 
             /* remainder < tresshold? */
             ICmpInst* do_cloned = new ICmpInst(*RndBB, ICmpInst::ICMP_ULE, Remainder, ConstantFaultPct, "");
             /* goto first cloned block or first original block */
@@ -167,28 +188,33 @@ namespace llvm{
                     if (SwapBinary){
                         /* switch operands of binary instructions */
                         if(BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
-                            Value *tmp = Op->getOperand(0);
-                            Op->setOperand(0, Op->getOperand(1));
-                            Op->setOperand(1, tmp);
+                            if((rand() % 1000) < prob_swap){
+                                Value *tmp = Op->getOperand(0);
+                                Op->setOperand(0, Op->getOperand(1));
+                                Op->setOperand(1, tmp);
 
-                            count_incr(fault_count_swap_var, Op, M);
-
+                                count_incr(fault_count_swap_var, Op, M);
+                            }
                         }
                     }
                     if (1 /* loadNull */){
                         if(LoadInst *LI = dyn_cast<LoadInst>(inst)){
                             if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
-                                LI->setOperand(0, GV_int_0);
-                                count_incr(fault_count_no_load_var, LI, M);
+                                if((rand() % 1000) < prob_no_load){
+                                    LI->setOperand(0, GV_int_0);
+                                    count_incr(fault_count_no_load_var, LI, M);
+                                }
                             }
                         }
                     }
                     if (1 /* delStore */){
                         if(StoreInst *SI = dyn_cast<StoreInst>(inst)){
-                            --II; /* decrease iterator, so that it can be incremented for the next iteration */
-                            count_incr(fault_count_no_store_var, II, M);
-                            SI->eraseFromParent();
-                            removed=true;
+                            if((rand() % 1000) < prob_no_store){
+                                --II; /* decrease iterator, so that it can be incremented for the next iteration */
+                                count_incr(fault_count_no_store_var, II, M);
+                                SI->eraseFromParent();
+                                removed=true;
+                            }
                         }
                     }
                     errs() << "< ";
