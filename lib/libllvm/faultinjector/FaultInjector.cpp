@@ -73,9 +73,6 @@ namespace llvm{
             errs() << "Error: no faultinjection_enabled variable found";
             exit(1);
         }
-#if 0
-        enabled_var->setInitializer(ConstantInt::get(M.getContext(), APInt(32, 1)));
-#endif                    
 
         GlobalVariable* fault_count_swap_var = M.getNamedGlobal("fault_count_swap");
         GlobalVariable* fault_count_no_load_var = M.getNamedGlobal("fault_count_no_load");
