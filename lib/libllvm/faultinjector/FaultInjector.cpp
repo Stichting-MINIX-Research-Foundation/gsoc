@@ -46,11 +46,6 @@ prob_no_store("fault-prob-no-store",
         cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
         cl::init(1000), cl::NotHidden, cl::ValueRequired);
 
-static cl::opt<bool>
-SwapBinary("fault-swap-binary",
-        cl::desc("Fault Injector: Swaps binary operands"),
-        cl::init(true), cl::NotHidden, cl::ValueRequired);
-
 
 namespace llvm{
 
@@ -185,38 +180,38 @@ namespace llvm{
                     inst->print(errs());
                     errs() << "\n";
                     bool removed = false;
-                    if (SwapBinary){
-                        /* switch operands of binary instructions */
-                        if(BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
-                            if((rand() % 1000) < prob_swap){
-                                Value *tmp = Op->getOperand(0);
-                                Op->setOperand(0, Op->getOperand(1));
-                                Op->setOperand(1, tmp);
+                    
+                    if(BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
+                        if((rand() % 1000) < prob_swap){
+                            /* switch operands of binary instructions */
+                            Value *tmp = Op->getOperand(0);
+                            Op->setOperand(0, Op->getOperand(1));
+                            Op->setOperand(1, tmp);
 
-                                count_incr(fault_count_swap_var, Op, M);
+                            count_incr(fault_count_swap_var, Op, M);
+                        }
+                    }
+
+                    if(LoadInst *LI = dyn_cast<LoadInst>(inst)){
+                        if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
+                            if((rand() % 1000) < prob_no_load){
+                                /* load 0 instead of target value. */
+                                LI->setOperand(0, GV_int_0);
+                                count_incr(fault_count_no_load_var, LI, M);
                             }
                         }
                     }
-                    if (1 /* loadNull */){
-                        if(LoadInst *LI = dyn_cast<LoadInst>(inst)){
-                            if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
-                                if((rand() % 1000) < prob_no_load){
-                                    LI->setOperand(0, GV_int_0);
-                                    count_incr(fault_count_no_load_var, LI, M);
-                                }
-                            }
+
+                    if(StoreInst *SI = dyn_cast<StoreInst>(inst)){
+                        if((rand() % 1000) < prob_no_store){
+                            /* remove store instruction */
+                            --II; /* decrease iterator, so that it can be incremented for the next iteration */
+                            count_incr(fault_count_no_store_var, II, M);
+                            SI->eraseFromParent();
+                            removed=true;
                         }
                     }
-                    if (1 /* delStore */){
-                        if(StoreInst *SI = dyn_cast<StoreInst>(inst)){
-                            if((rand() % 1000) < prob_no_store){
-                                --II; /* decrease iterator, so that it can be incremented for the next iteration */
-                                count_incr(fault_count_no_store_var, II, M);
-                                SI->eraseFromParent();
-                                removed=true;
-                            }
-                        }
-                    }
+
                     errs() << "< ";
                     if(removed){
                         errs() << "<removed>\n";
