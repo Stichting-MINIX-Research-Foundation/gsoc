@@ -213,6 +213,12 @@ static int init_driver(void) {
 	static int executed = 0;
 	sub_dev_t* sub_dev_ptr;
 
+	/* initialize basic driver variables */
+	if (drv_init() != OK) {
+		printf("libaudiodriver: Could not initialize driver\n");
+		return EIO;
+	}
+
 	/* init variables, get dma buffers */
 	for (i = 0; i < drv.NrOfSubDevices; i++) {
 
@@ -413,6 +419,7 @@ static int msg_close(int minor_dev_nr) {
 
 
 static int close_sub_dev(int sub_dev_nr) {
+	size_t size;
 	sub_dev_t *sub_dev_ptr;
 	sub_dev_ptr = &sub_dev[sub_dev_nr];
 	if (sub_dev_ptr->DmaMode == DEV_WRITE_S && !sub_dev_ptr->OutOfData) {
@@ -430,7 +437,8 @@ static int close_sub_dev(int sub_dev_nr) {
 	/* stop the device */
 	drv_stop(sub_dev_ptr->Nr);
 	/* free the buffers */
-	free(sub_dev_ptr->DmaBuf);
+	size= sub_dev_ptr->DmaSize + 64 * 1024;
+	free_contig(sub_dev_ptr->DmaBuf, size);
 	free(sub_dev_ptr->ExtraBuf);
 	return OK;
 }
@@ -790,11 +798,13 @@ static void data_from_user(sub_dev_t *subdev)
 
 	if (subdev->DmaLength < subdev->NrOfDmaFragments) { /* room in dma buf */
 
-		sys_safecopyfrom(subdev->SourceProcNr, 
+		r = sys_safecopyfrom(subdev->SourceProcNr,
 				(vir_bytes)subdev->ReviveGrant, 0, 
 				(vir_bytes)subdev->DmaPtr + 
 				subdev->DmaFillNext * subdev->FragSize,
 				(phys_bytes)subdev->FragSize);
+		if (r != OK)
+			printf("%s:%d: safecopy failed\n", __FILE__, __LINE__);
 
 
 		subdev->DmaLength += 1;
@@ -803,11 +813,13 @@ static void data_from_user(sub_dev_t *subdev)
 
 	} else { /* room in extra buf */ 
 
-		sys_safecopyfrom(subdev->SourceProcNr, 
+		r = sys_safecopyfrom(subdev->SourceProcNr,
 				(vir_bytes)subdev->ReviveGrant, 0,
 				(vir_bytes)subdev->ExtraBuf + 
 				subdev->BufFillNext * subdev->FragSize, 
 				(phys_bytes)subdev->FragSize);
+		if (r != OK)
+			printf("%s:%d: safecopy failed\n", __FILE__, __LINE__);
 
 		subdev->BufLength += 1;
 
@@ -857,11 +869,13 @@ static void data_to_user(sub_dev_t *sub_dev_ptr)
 
 	if(sub_dev_ptr->BufLength != 0) { /* data in extra buffer available */
 
-		sys_safecopyto(sub_dev_ptr->SourceProcNr, 
+		r = sys_safecopyto(sub_dev_ptr->SourceProcNr,
 				(vir_bytes)sub_dev_ptr->ReviveGrant,
 				0, (vir_bytes)sub_dev_ptr->ExtraBuf + 
 				sub_dev_ptr->BufReadNext * sub_dev_ptr->FragSize,
 				(phys_bytes)sub_dev_ptr->FragSize);
+		if (r != OK)
+			printf("%s:%d: safecopy failed\n", __FILE__, __LINE__);
 
 		/* adjust the buffer status variables */
 		sub_dev_ptr->BufReadNext = 
@@ -869,12 +883,14 @@ static void data_to_user(sub_dev_t *sub_dev_ptr)
 		sub_dev_ptr->BufLength -= 1;
 
 	} else { /* extra buf empty, but data in dma buf*/ 
-		sys_safecopyto(
+		r = sys_safecopyto(
 				sub_dev_ptr->SourceProcNr, 
 				(vir_bytes)sub_dev_ptr->ReviveGrant, 0, 
 				(vir_bytes)sub_dev_ptr->DmaPtr + 
 				sub_dev_ptr->DmaReadNext * sub_dev_ptr->FragSize,
 				(phys_bytes)sub_dev_ptr->FragSize);
+		if (r != OK)
+			printf("%s:%d: safecopy failed\n", __FILE__, __LINE__);
 
 		/* adjust the buffer status variables */
 		sub_dev_ptr->DmaReadNext = 
@@ -933,9 +949,7 @@ static int init_buffers(sub_dev_t *sub_dev_ptr)
 	}
 
 	sub_dev_ptr->DmaPtr = sub_dev_ptr->DmaBuf;
-	i = sys_umap(SELF, VM_D, 
-			(vir_bytes) sub_dev_ptr->DmaBuf, 
-			(phys_bytes) sizeof(sub_dev_ptr->DmaBuf), 
+	i = sys_umap(SELF, VM_D, (vir_bytes) base, (phys_bytes) size,
 			&(sub_dev_ptr->DmaPhys));
 
 	if (i != OK) {
