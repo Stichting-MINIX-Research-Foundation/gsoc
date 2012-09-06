@@ -111,8 +111,8 @@ namespace llvm{
 
             /* Move all AllocaInstructions from OldFirstBB to NewFirstBB */
             for(BasicBlock::iterator BI = OldFirstBB->getInstList().begin(), BE = OldFirstBB->getInstList().end(); BI != BE;){
-                Instruction *inst = &(*BI++);
-                if (AllocaInst *allocaInst = dyn_cast<AllocaInst>(inst)){
+                Instruction *val = &(*BI++);
+                if (AllocaInst *allocaInst = dyn_cast<AllocaInst>(val)){
                     allocaInst->removeFromParent();
                     NewFirstBB->getInstList().push_back(allocaInst);
                 }
@@ -171,16 +171,19 @@ namespace llvm{
             for(std::vector<BasicBlock>::size_type i = 0; i <  Clones.size(); i++){
                 BasicBlock *BB = Clones[i];
                 /* For each basic block, loop through all instructions */
-                for (BasicBlock::iterator II = BB->begin(); II != BB->end(); ++II){
-                    Instruction *inst = &(*II);
+                for (BasicBlock::iterator II = BB->begin(), nextII; II != BB->end();II=nextII){
+                    Value *val = &(*II);
                     errs() << "> ";
-                    inst->print(errs());
+                    val->print(errs());
                     errs() << "\n";
                     bool removed = false;
+                    nextII=II;
+                    nextII++;
                     
-                    if(BinaryOperator *Op = dyn_cast<BinaryOperator>(inst)){
+                    if(BinaryOperator *Op = dyn_cast<BinaryOperator>(val)){
                         if((rand() % 1000) < prob_swap){
                             /* switch operands of binary instructions */
+                            /* todo: if(op1.type == op2.type */
                             Value *tmp = Op->getOperand(0);
                             Op->setOperand(0, Op->getOperand(1));
                             Op->setOperand(1, tmp);
@@ -189,20 +192,22 @@ namespace llvm{
                         }
                     }
 
-                    if(LoadInst *LI = dyn_cast<LoadInst>(inst)){
+                    else if(LoadInst *LI = dyn_cast<LoadInst>(val)){
                         if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
                             if((rand() % 1000) < prob_no_load){
                                 /* load 0 instead of target value. */
-                                LI->setOperand(0, GV_int_0);
-                                count_incr(fault_count_no_load_var, LI, M);
+                                Value *nullValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
+                                LI->replaceAllUsesWith(nullValue);
+                                count_incr(fault_count_no_load_var, nextII, M);
+                                LI->eraseFromParent();
+                                val = nullValue;
                             }
                         }
                     }
 
-                    if(StoreInst *SI = dyn_cast<StoreInst>(inst)){
+                    else if(StoreInst *SI = dyn_cast<StoreInst>(val)){
                         if((rand() % 1000) < prob_no_store){
                             /* remove store instruction */
-                            --II; /* decrease iterator, so that it can be incremented for the next iteration */
                             count_incr(fault_count_no_store_var, II, M);
                             SI->eraseFromParent();
                             removed=true;
@@ -213,7 +218,7 @@ namespace llvm{
                     if(removed){
                         errs() << "<removed>\n";
                     }else{
-                        inst->print(errs());
+                        val->print(errs());
                         errs() << "\n";
                     }
 
