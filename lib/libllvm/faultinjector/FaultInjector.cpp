@@ -29,22 +29,22 @@ FaultFunctions("fault-functions",
 static cl::opt<int>
 prob_global("fault-prob-global",
         cl::desc("Fault Injector: global dynamic fault probability (0 - 1000) "),
-        cl::init(1000), cl::NotHidden, cl::ValueRequired);
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<int>
 prob_swap("fault-prob-swap",
         cl::desc("Fault Injector: binary operand swap fault probability (0 - 1000) "),
-        cl::init(1000), cl::NotHidden, cl::ValueRequired);
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<int>
 prob_no_load("fault-prob-no-load",
         cl::desc("Fault Injector: load instruction loading '0' fault probability (0 - 1000) "),
-        cl::init(1000), cl::NotHidden, cl::ValueRequired);
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<int>
 prob_no_store("fault-prob-no-store",
         cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
-        cl::init(1000), cl::NotHidden, cl::ValueRequired);
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
 
 
 namespace llvm{
