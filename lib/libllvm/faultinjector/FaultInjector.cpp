@@ -179,40 +179,46 @@ namespace llvm{
                     bool removed = false;
                     nextII=II;
                     nextII++;
-                    
-                    if(BinaryOperator *Op = dyn_cast<BinaryOperator>(val)){
-                        if((rand() % 1000) < prob_swap){
-                            /* switch operands of binary instructions */
-                            /* todo: if(op1.type == op2.type */
-                            Value *tmp = Op->getOperand(0);
-                            Op->setOperand(0, Op->getOperand(1));
-                            Op->setOperand(1, tmp);
+            
+                    do{        
+                        if(BinaryOperator *Op = dyn_cast<BinaryOperator>(val)){
+                            if((rand() % 1000) < prob_swap){
+                                /* switch operands of binary instructions */
+                                /* todo: if(op1.type == op2.type */
+                                Value *tmp = Op->getOperand(0);
+                                Op->setOperand(0, Op->getOperand(1));
+                                Op->setOperand(1, tmp);
 
-                            count_incr(fault_count_swap_var, Op, M);
+                                count_incr(fault_count_swap_var, Op, M);
+                                continue;
+                            }
                         }
-                    }
 
-                    else if(LoadInst *LI = dyn_cast<LoadInst>(val)){
-                        if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
-                            if((rand() % 1000) < prob_no_load){
-                                /* load 0 instead of target value. */
-                                Value *nullValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
-                                LI->replaceAllUsesWith(nullValue);
-                                count_incr(fault_count_no_load_var, nextII, M);
-                                LI->eraseFromParent();
-                                val = nullValue;
+                        if(LoadInst *LI = dyn_cast<LoadInst>(val)){
+                            if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
+                                if((rand() % 1000) < prob_no_load){
+                                    /* load 0 instead of target value. */
+                                    Value *nullValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
+                                    LI->replaceAllUsesWith(nullValue);
+                                    count_incr(fault_count_no_load_var, nextII, M);
+                                    LI->eraseFromParent();
+                                    val = nullValue;
+                                    continue;
+                                }
+                            }
+                        }
+
+                        if(StoreInst *SI = dyn_cast<StoreInst>(val)){
+                            if((rand() % 1000) < prob_no_store){
+                                /* remove store instruction */
+                                count_incr(fault_count_no_store_var, II, M);
+                                SI->eraseFromParent();
+                                removed=true;
+                                continue;
                             }
                         }
                     }
-
-                    else if(StoreInst *SI = dyn_cast<StoreInst>(val)){
-                        if((rand() % 1000) < prob_no_store){
-                            /* remove store instruction */
-                            count_incr(fault_count_no_store_var, II, M);
-                            SI->eraseFromParent();
-                            removed=true;
-                        }
-                    }
+                    while(false);
 
                     errs() << "< ";
                     if(removed){
