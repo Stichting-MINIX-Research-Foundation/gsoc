@@ -46,6 +46,11 @@ prob_no_store("fault-prob-no-store",
         cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
+static cl::opt<int>
+prob_flip_bool("fault-prob-flip-bool",
+        cl::desc("Fault Injector: flip boolean value fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
 
 namespace llvm{
 
@@ -64,6 +69,7 @@ namespace llvm{
         Module::FunctionListType &functionList = M.getFunctionList();
         SmallVectorImpl<BasicBlock*> Clones(0);
 
+        ConstantInt* True = ConstantInt::get(M.getContext(), APInt(1, StringRef("-1"), 10));
         ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
         ConstantInt* Constant1000 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1000"), 10));
         ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, prob_global, 10));
@@ -77,7 +83,8 @@ namespace llvm{
         GlobalVariable* fault_count_swap_var = M.getNamedGlobal("fault_count_swap");
         GlobalVariable* fault_count_no_load_var = M.getNamedGlobal("fault_count_no_load");
         GlobalVariable* fault_count_no_store_var = M.getNamedGlobal("fault_count_no_store");
-        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_no_store_var) {
+        GlobalVariable* fault_count_flip_bool_var = M.getNamedGlobal("fault_count_flip_bool");
+        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var) {
             errs() << "Error: no fault counter variable found";
             exit(1);
         }
@@ -214,6 +221,20 @@ namespace llvm{
                                 count_incr(fault_count_no_store_var, II, M);
                                 SI->eraseFromParent();
                                 removed=true;
+                                continue;
+                            }
+                        }
+                        if(val->getType()->isIntegerTy(1)){
+                            if((rand() % 1000) < prob_flip_bool){
+                                count_incr(fault_count_flip_bool_var, II, M);
+
+                                BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, val, True, "", nextII);
+                                II->replaceAllUsesWith(Negation);
+                                Negation->setOperand(0, II); /* restore the use in the negation instruction */
+                                errs() << "< inserted (after next): ";
+                                Negation->print(errs());
+                                errs() << "\n";
+
                                 continue;
                             }
                         }

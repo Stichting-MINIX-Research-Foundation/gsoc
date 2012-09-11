@@ -11,9 +11,9 @@
 volatile int magic_ensure_linkage = ((int) &rand);
 
 int faultinjection_enabled = 0;
-int fault_count_swap = 0, fault_count_no_load = 0, fault_count_no_store = 0;
+int fault_count_swap = 0, fault_count_no_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0;
 
-int lh=4, rh=3;
+int lh=4, rh=3, condition=~0;
 
 void fault_test_no_load(){
     int my_lh=lh, my_rh=rh;
@@ -27,6 +27,13 @@ void fault_test_no_store(){
     lh++;
 }
 
+void fault_test_flip_bool(){
+    if(condition){
+        printf("fault_test: do\n");
+    }
+    condition = ~condition;
+}
+
 void fault_test(){
     printf("fault_test_no_load_start\n");
     fault_test_no_load();
@@ -34,6 +41,11 @@ void fault_test(){
     printf("fault_test_no_store_start\n");
     fault_test_no_store();
     printf("fault_test_no_store_end\n");
+    printf("fault_test_flip_bool_start\n");
+    fault_test_flip_bool();
+    fault_test_flip_bool();
+    fault_test_flip_bool();
+    printf("fault_test_flip_bool_end\n");
 }
 
 void fault_switch(int enable){
@@ -46,6 +58,7 @@ void fault_print_stats(){
     printf("   swap:     %d\n", fault_count_swap);
     printf("   no load:  %d\n", fault_count_no_load);
     printf("   no store: %d\n", fault_count_no_store);
+    printf("   flip bool: %d\n", fault_count_flip_bool);
 }
 
 int do_fault_injector_request_impl(message *m){
