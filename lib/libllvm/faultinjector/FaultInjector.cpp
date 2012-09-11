@@ -51,6 +51,16 @@ prob_flip_bool("fault-prob-flip-bool",
         cl::desc("Fault Injector: flip boolean value fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
+static cl::opt<int>
+prob_flip_branch("fault-prob-flip-branch",
+        cl::desc("Fault Injector: flip branch fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+static cl::opt<int>
+prob_corrupt_pointer("fault-prob-corrupt-pointer",
+        cl::desc("Fault Injector: corrupt pointer fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
 
 namespace llvm{
 
@@ -84,7 +94,9 @@ namespace llvm{
         GlobalVariable* fault_count_no_load_var = M.getNamedGlobal("fault_count_no_load");
         GlobalVariable* fault_count_no_store_var = M.getNamedGlobal("fault_count_no_store");
         GlobalVariable* fault_count_flip_bool_var = M.getNamedGlobal("fault_count_flip_bool");
-        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var) {
+        GlobalVariable* fault_count_flip_branch_var = M.getNamedGlobal("fault_count_flip_branch");
+        GlobalVariable* fault_count_corrupt_pointer_var = M.getNamedGlobal("fault_count_corrupt_pointer");
+        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var) {
             errs() << "Error: no fault counter variable found";
             exit(1);
         }
@@ -224,9 +236,31 @@ namespace llvm{
                                 continue;
                             }
                         }
+
                         if(val->getType()->isIntegerTy(1)){
+                            
+                            if((rand() % 1000) < prob_flip_branch){
+                                /* boolean value is used as branching condition */
+                                BranchInst *BI;
+                                bool isBranchInst = false;
+                                for(Value::use_iterator U = val->use_begin(), UE = val->use_end(); U != UE; U++){
+                                    if ((BI = dyn_cast<BranchInst>(*U))) {
+                                        isBranchInst = true;
+                                        break;
+                                    }
+                                }
+                                if(isBranchInst){
+                                    errs() << "Negated branch instruction\n";
+                                    count_incr(fault_count_flip_branch_var, nextII, M);
+                                    BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, val, True, "", nextII);
+                                    BI->setOperand(0, Negation);
+                                    continue;
+                                }
+                            }
+
                             if((rand() % 1000) < prob_flip_bool){
-                                count_incr(fault_count_flip_bool_var, II, M);
+                                /* boolean value, not necessarily used as branching condition */
+                                count_incr(fault_count_flip_bool_var, nextII, M);
 
                                 BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, val, True, "", nextII);
                                 II->replaceAllUsesWith(Negation);
@@ -237,7 +271,19 @@ namespace llvm{
 
                                 continue;
                             }
+                        
                         }
+
+                        if(val->getType()->isPointerTy()){
+                            errs() << "found\n";
+                            if((rand() % 1000) < prob_corrupt_pointer){
+                                CallInst* PtrRandFuncCall = CallInst::Create(RandFunc, "", nextII);
+                                CastInst* rand64 = new SExtInst(PtrRandFuncCall, IntegerType::get(M.getContext(), 64), "", nextII);
+                                CastInst* rnd_ptr = new IntToPtrInst(rand64, val->getType(), "", nextII);    
+                                II->replaceAllUsesWith(rnd_ptr);
+                            }
+                        }
+
                     }
                     while(false);
 

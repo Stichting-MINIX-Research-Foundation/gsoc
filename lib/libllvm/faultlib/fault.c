@@ -11,7 +11,7 @@
 volatile int magic_ensure_linkage = ((int) &rand);
 
 int faultinjection_enabled = 0;
-int fault_count_swap = 0, fault_count_no_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0;
+int fault_count_swap = 0, fault_count_no_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0;
 
 int lh=4, rh=3, condition=~0;
 
@@ -28,10 +28,21 @@ void fault_test_no_store(){
 }
 
 void fault_test_flip_bool(){
-    if(condition){
+    volatile int local_condition = 1;
+    volatile int new_condition = local_condition && condition;
+    if(new_condition){
         printf("fault_test: do\n");
     }
     condition = ~condition;
+}
+
+void fault_test_corrupt_pointer(){
+    volatile int i;
+    volatile int *p = &i;
+    if(i){
+        p++;
+    }
+    printf("pointer: %p\n", p);
 }
 
 void fault_test(){
@@ -46,6 +57,9 @@ void fault_test(){
     fault_test_flip_bool();
     fault_test_flip_bool();
     printf("fault_test_flip_bool_end\n");
+    printf("fault_test_corrupt_pointer_start\n");
+    fault_test_corrupt_pointer();
+    printf("fault_test_corrupt_pointer_end\n");
 }
 
 void fault_switch(int enable){
@@ -59,6 +73,8 @@ void fault_print_stats(){
     printf("   no load:  %d\n", fault_count_no_load);
     printf("   no store: %d\n", fault_count_no_store);
     printf("   flip bool: %d\n", fault_count_flip_bool);
+    printf("   flip branch: %d\n", fault_count_flip_branch);
+    printf("   corrupt pointer: %d\n", fault_count_corrupt_pointer);
 }
 
 int do_fault_injector_request_impl(message *m){
