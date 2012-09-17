@@ -229,9 +229,11 @@ namespace llvm{
                                     count_incr(fault_count_no_load_var, nextII, M);
                                     doReplace=true;
                                 }else if((rand() % 1000) < prob_rnd_load){
-                                    newValue = CallInst::Create(RandFunc, "", nextII);
-                                    count_incr(fault_count_rnd_load_var, nextII, M);
-                                    doReplace=true;
+                                    if(val->getType()->isIntegerTy(32)){
+                                        newValue = CallInst::Create(RandFunc, "", nextII);
+                                        count_incr(fault_count_rnd_load_var, nextII, M);
+                                        doReplace=true;
+                                    }
                                 }
                                 
                                 if(doReplace){
