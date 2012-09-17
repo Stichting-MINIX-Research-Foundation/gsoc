@@ -76,6 +76,11 @@ prob_corrupt_index("fault-prob-corrupt-index",
         cl::desc("Fault Injector: corrupt index fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
+static cl::opt<int>
+prob_corrupt_operator("fault-prob-corrupt-operator",
+        cl::desc("Fault Injector: corrupt binary operator fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
 
 namespace llvm{
 
@@ -87,7 +92,6 @@ namespace llvm{
         struct timeval tp;
         gettimeofday(&tp, NULL);
         srand((int) tp.tv_usec - tp.tv_sec);
-        errs() << "RND: " << rand() << "\n";
 
         std::vector<std::string> FunctionNames(0);
         StringExplode(FaultFunctions, ",", &FunctionNames);
@@ -116,7 +120,8 @@ namespace llvm{
         GlobalVariable* fault_count_corrupt_pointer_var = M.getNamedGlobal("fault_count_corrupt_pointer");
         GlobalVariable* fault_count_corrupt_integer_var = M.getNamedGlobal("fault_count_corrupt_integer");
         GlobalVariable* fault_count_corrupt_index_var = M.getNamedGlobal("fault_count_corrupt_index");
-        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var || !fault_count_corrupt_index_var) {
+        GlobalVariable* fault_count_corrupt_operator_var = M.getNamedGlobal("fault_count_corrupt_operator");
+        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var || !fault_count_corrupt_index_var || !fault_count_corrupt_operator_var) {
             errs() << "Error: no fault counter variable found";
             exit(1);
         }
@@ -352,6 +357,34 @@ namespace llvm{
                                 BinaryOperator* Change = BinaryOperator::Create(opcode, val, Constant1, "", nextII);
                                 II->replaceAllUsesWith(Change);
                                 Change->setOperand(0, II); /* restore the use in the change instruction */
+                                continue;
+                            }
+                        }
+
+                        if(BinaryOperator *BO = dyn_cast<BinaryOperator>(val)){
+                            if((rand() % 1000) < prob_corrupt_operator){
+                                
+                                Instruction::BinaryOps newOpCode;
+                                
+                                if(BO->getType()->isIntOrIntVectorTy()){
+                                    Instruction::BinaryOps IntOps[] = {BinaryOperator::Add, BinaryOperator::Sub, BinaryOperator::Mul, BinaryOperator::UDiv, BinaryOperator::SDiv, BinaryOperator::URem, BinaryOperator::SRem, BinaryOperator::Shl, BinaryOperator::LShr, BinaryOperator::AShr, BinaryOperator::And, BinaryOperator::Or, BinaryOperator::Xor};
+                                    newOpCode = IntOps[rand() % (sizeof(IntOps)/sizeof(IntOps[0]))];
+                                }else{
+                                    assert(BO->getType()->isFPOrFPVectorTy());
+                                    // FRem is not included, because it requires fmod from libm to be linked in.
+                                    Instruction::BinaryOps FpOps[] = {BinaryOperator::FAdd, BinaryOperator::FSub, BinaryOperator::FMul, BinaryOperator::FDiv};
+                                    newOpCode = FpOps[rand() % (sizeof(FpOps)/sizeof(FpOps[0]))];
+                                }
+
+                                BinaryOperator* Replacement = BinaryOperator::Create(newOpCode, BO->getOperand(0), BO->getOperand(1), "", nextII);
+                                BO->replaceAllUsesWith(Replacement);
+                                BO->eraseFromParent();
+                                
+                                count_incr(fault_count_corrupt_operator_var, nextII, M);
+                                removed=true;
+                                errs() << "< replaced with: ";
+                                Replacement->print(errs());
+                                errs() << "\n";
                                 continue;
                             }
                         }
