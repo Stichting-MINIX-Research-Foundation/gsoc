@@ -1,0 +1,5 @@
+   swap:     0
+   no load:  0
+   no store: 0
+   flip bool: 3
+   flip branch: 6

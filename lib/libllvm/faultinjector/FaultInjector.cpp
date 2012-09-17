@@ -66,6 +66,11 @@ prob_corrupt_pointer("fault-prob-corrupt-pointer",
         cl::desc("Fault Injector: corrupt pointer fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
+static cl::opt<int>
+prob_corrupt_integer("fault-prob-corrupt-integer",
+        cl::desc("Fault Injector: corrupt integer fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
 
 namespace llvm{
 
@@ -86,6 +91,7 @@ namespace llvm{
 
         ConstantInt* True = ConstantInt::get(M.getContext(), APInt(1, StringRef("-1"), 10));
         ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
+        ConstantInt* Constant1 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1"), 10));
         ConstantInt* Constant1000 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1000"), 10));
         ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, prob_global, 10));
 
@@ -102,7 +108,8 @@ namespace llvm{
         GlobalVariable* fault_count_flip_bool_var = M.getNamedGlobal("fault_count_flip_bool");
         GlobalVariable* fault_count_flip_branch_var = M.getNamedGlobal("fault_count_flip_branch");
         GlobalVariable* fault_count_corrupt_pointer_var = M.getNamedGlobal("fault_count_corrupt_pointer");
-        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var) {
+        GlobalVariable* fault_count_corrupt_integer_var = M.getNamedGlobal("fault_count_corrupt_integer");
+        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var) {
             errs() << "Error: no fault counter variable found";
             exit(1);
         }
@@ -298,6 +305,24 @@ namespace llvm{
                                 CastInst* rand64 = new SExtInst(PtrRandFuncCall, IntegerType::get(M.getContext(), 64), "", nextII);
                                 CastInst* rnd_ptr = new IntToPtrInst(rand64, val->getType(), "", nextII);    
                                 II->replaceAllUsesWith(rnd_ptr);
+                                count_incr(fault_count_corrupt_pointer_var, nextII, M);
+                                continue;
+                            }
+                        }
+
+                        if(val->getType()->isIntegerTy(32)){
+                            if((rand() % 1000) < prob_corrupt_integer){
+                                Instruction::BinaryOps opcode;
+                                if(rand() % 2){
+                                    opcode=Instruction::Add;
+                                }else{
+                                    opcode=Instruction::Sub;
+                                }
+                                BinaryOperator* Change = BinaryOperator::Create(opcode, val, Constant1, "", nextII);
+                                II->replaceAllUsesWith(Change);
+                                Change->setOperand(0, II); /* restore the use in the change instruction */
+                                count_incr(fault_count_corrupt_integer_var, nextII, M);
+                                continue;
                             }
                         }
 
