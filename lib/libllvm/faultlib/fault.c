@@ -11,7 +11,7 @@
 volatile int magic_ensure_linkage = ((int) &rand);
 
 int faultinjection_enabled = 0;
-int fault_count_swap = 0, fault_count_no_load = 0, fault_count_rnd_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0, fault_count_corrupt_integer = 0;
+int fault_count_swap = 0, fault_count_no_load = 0, fault_count_rnd_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0, fault_count_corrupt_integer = 0, fault_count_corrupt_index = 0;
 
 int lh=4, rh=3, condition=~0;
 
@@ -52,11 +52,13 @@ void fault_test_corrupt_pointer(){
 }
 
 void fault_test_corrupt_integer(){
-    volatile int i = 1;
+    volatile int i = 3, j=3, arr[]={1,2,3};
     if(i){
         i=1;
+        j=1;
     }
-    printf("integer: %d\n", i);
+    printf("integer1: %d\n", i);
+    printf("integer2: %d\n", arr[j]);
 }
 
 void fault_test(){
@@ -97,6 +99,7 @@ void fault_print_stats(){
     printf("   flip branch: %d\n", fault_count_flip_branch);
     printf("   corrupt pointer: %d\n", fault_count_corrupt_pointer);
     printf("   corrupt integer: %d\n", fault_count_corrupt_integer);
+    printf("   corrupt index: %d\n", fault_count_corrupt_index);
 }
 
 int do_fault_injector_request_impl(message *m){
