@@ -6,13 +6,19 @@
 
 #include <sys/time.h>
 
-int main(){
+int main(int argc, char **argv){
     message m;
 
     /* seed rand() */
-    struct timeval tp;
-    gettimeofday(&tp, NULL);
-    srand((int) tp.tv_usec);
+    int seed;
+    if(argc == 2){
+        seed = atoi(argv[1]);
+    }else{
+        struct timeval tp;
+        gettimeofday(&tp, NULL);
+        seed = (int) tp.tv_usec;
+    }
+    srand(seed);
 
     /* turn on fault execution */
     m.FAULT_INJECTOR_CMD = FAULT_INJECTOR_CMD_ON;

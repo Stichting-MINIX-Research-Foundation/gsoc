@@ -21,7 +21,7 @@ LLVM_CONF=FAULT make clean;
 
 LLVM_CONF=FAULT LLVM_PASS_ARGS="$ARGS" make all
 
-./faulttest > $FAULT_OUT
+./faulttest $RAND_SEED > $FAULT_OUT
 
 awk "/$OUTPUT_FROM/,/$OUTPUT_TO/{if (!/$OUTPUT_FROM/&&!/$OUTPUT_TO/)print}" $FAULT_OUT > $FAULT_OUT_FILTERED
 awk "/$STATS_LINE/,/asdfasdfas/{if (!/$STATS_LINE/)print}" $FAULT_OUT >> $FAULT_OUT_FILTERED
