@@ -11,11 +11,17 @@
 volatile int magic_ensure_linkage = ((int) &rand);
 
 int faultinjection_enabled = 0;
-int fault_count_swap = 0, fault_count_no_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0;
+int fault_count_swap = 0, fault_count_no_load = 0, fault_count_rnd_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0;
 
 int lh=4, rh=3, condition=~0;
 
 void fault_test_no_load(){
+    int my_lh=lh, my_rh=rh;
+    printf("fault_test: %d\n", my_lh-my_rh);
+    lh++;
+}
+
+void fault_test_rnd_load(){
     int my_lh=lh, my_rh=rh;
     printf("fault_test: %d\n", my_lh-my_rh);
     lh++;
@@ -49,6 +55,9 @@ void fault_test(){
     printf("fault_test_no_load_start\n");
     fault_test_no_load();
     printf("fault_test_no_load_end\n");
+    printf("fault_test_rnd_load_start\n");
+    fault_test_rnd_load();
+    printf("fault_test_rnd_load_end\n");
     printf("fault_test_no_store_start\n");
     fault_test_no_store();
     printf("fault_test_no_store_end\n");
@@ -71,6 +80,7 @@ void fault_print_stats(){
     printf("faultinjector stats:\n");
     printf("   swap:     %d\n", fault_count_swap);
     printf("   no load:  %d\n", fault_count_no_load);
+    printf("   rnd load:  %d\n", fault_count_rnd_load);
     printf("   no store: %d\n", fault_count_no_store);
     printf("   flip bool: %d\n", fault_count_flip_bool);
     printf("   flip branch: %d\n", fault_count_flip_branch);

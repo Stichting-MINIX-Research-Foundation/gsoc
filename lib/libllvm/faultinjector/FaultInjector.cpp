@@ -42,6 +42,11 @@ prob_no_load("fault-prob-no-load",
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<int>
+prob_rnd_load("fault-prob-rnd-load",
+        cl::desc("Fault Injector: load instruction loading 'rnd()' fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+static cl::opt<int>
 prob_no_store("fault-prob-no-store",
         cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
@@ -92,11 +97,12 @@ namespace llvm{
 
         GlobalVariable* fault_count_swap_var = M.getNamedGlobal("fault_count_swap");
         GlobalVariable* fault_count_no_load_var = M.getNamedGlobal("fault_count_no_load");
+        GlobalVariable* fault_count_rnd_load_var = M.getNamedGlobal("fault_count_rnd_load");
         GlobalVariable* fault_count_no_store_var = M.getNamedGlobal("fault_count_no_store");
         GlobalVariable* fault_count_flip_bool_var = M.getNamedGlobal("fault_count_flip_bool");
         GlobalVariable* fault_count_flip_branch_var = M.getNamedGlobal("fault_count_flip_branch");
         GlobalVariable* fault_count_corrupt_pointer_var = M.getNamedGlobal("fault_count_corrupt_pointer");
-        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var) {
+        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var) {
             errs() << "Error: no fault counter variable found";
             exit(1);
         }
@@ -215,13 +221,23 @@ namespace llvm{
 
                         if(LoadInst *LI = dyn_cast<LoadInst>(val)){
                             if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
+                                Value *newValue;
+                                bool doReplace = false;
                                 if((rand() % 1000) < prob_no_load){
                                     /* load 0 instead of target value. */
-                                    Value *nullValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
-                                    LI->replaceAllUsesWith(nullValue);
+                                    newValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
                                     count_incr(fault_count_no_load_var, nextII, M);
+                                    doReplace=true;
+                                }else if((rand() % 1000) < prob_rnd_load){
+                                    newValue = CallInst::Create(RandFunc, "", nextII);
+                                    count_incr(fault_count_rnd_load_var, nextII, M);
+                                    doReplace=true;
+                                }
+                                
+                                if(doReplace){
+                                    LI->replaceAllUsesWith(newValue);
                                     LI->eraseFromParent();
-                                    val = nullValue;
+                                    val = newValue;
                                     continue;
                                 }
                             }
@@ -275,7 +291,6 @@ namespace llvm{
                         }
 
                         if(val->getType()->isPointerTy()){
-                            errs() << "found\n";
                             if((rand() % 1000) < prob_corrupt_pointer){
                                 CallInst* PtrRandFuncCall = CallInst::Create(RandFunc, "", nextII);
                                 CastInst* rand64 = new SExtInst(PtrRandFuncCall, IntegerType::get(M.getContext(), 64), "", nextII);

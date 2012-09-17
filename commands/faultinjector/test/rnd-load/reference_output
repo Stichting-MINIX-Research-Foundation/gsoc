@@ -1,0 +1,4 @@
+fault_test: 0
+   swap:     0
+   no load:  3
+   no store: 0
