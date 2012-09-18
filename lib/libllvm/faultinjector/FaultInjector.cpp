@@ -21,6 +21,11 @@
 
 using namespace llvm;
 
+static cl::opt<int>
+rand_seed("fault-rand-seed",
+        cl::desc("Fault Injector: random seed value. when '0', current time is used. "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
 static cl::opt<std::string>
 FaultFunctions("fault-functions",
         cl::desc("Fault Injector: specify comma separated list of functions to be instrumented (empty = all functions)"),
@@ -89,9 +94,13 @@ namespace llvm{
     bool FaultInjector::runOnModule(Module &M) {
 
         /* seed rand() */
-        struct timeval tp;
-        gettimeofday(&tp, NULL);
-        srand((int) tp.tv_usec - tp.tv_sec);
+        if(rand_seed == 0){
+            struct timeval tp;
+            gettimeofday(&tp, NULL);
+            srand((int) tp.tv_usec - tp.tv_sec);
+        }else{
+            srand(rand_seed);
+        }
 
         std::vector<std::string> FunctionNames(0);
         StringExplode(FaultFunctions, ",", &FunctionNames);
