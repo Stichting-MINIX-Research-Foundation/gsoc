@@ -4,7 +4,6 @@
 #include <minix/param.h>
 #include <sys/stat.h>
 #include <a.out.h>
-#include <tools.h>
 
 #include "vm.h"
 #include "vmproc.h"
@@ -25,9 +24,9 @@ EXTERN kinfo_t kernel_boot_info;
 EXTERN int nocheck;
 EXTERN int incheck;
 EXTERN long vm_sanitychecklevel;
+EXTERN int sc_lastline;
+EXTERN char *sc_lastfile;
 #endif
 
 /* total number of memory pages */
 EXTERN int total_pages;
-
-EXTERN int meminit_done;

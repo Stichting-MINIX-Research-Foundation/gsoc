@@ -258,8 +258,6 @@ int main(void)
 
 	/* If the device doesn't exist or is not configured return ENXIO. */
 	if (tp == NULL || ! tty_active(tp)) {
-		printf("Warning, TTY got illegal request %d from %d\n",
-			tty_mess.m_type, tty_mess.m_source);
 		if (tty_mess.m_source != LOG_PROC_NR)
 		{
 			tty_reply(TASK_REPLY, tty_mess.m_source,
@@ -430,7 +428,7 @@ message *m_ptr;
   }
 
   /* Almost done. Send back the reply message to the caller. */
-  status = sendnb(m_ptr->m_source, m_ptr);
+  status = send(m_ptr->m_source, m_ptr);
   if (status != OK) {
 	printf("tty`do_status: send to %d failed: %d\n",
 		m_ptr->m_source, status);
@@ -1487,7 +1485,7 @@ int status;			/* reply code */
 	panic("tty_reply sending TTY_REVIVE");
   }
 
-  status = sendnb(replyee, &tty_mess);
+  status = send(replyee, &tty_mess);
   if (status != OK)
 	printf("tty`tty_reply: send to %d failed: %d\n", replyee, status);
 }

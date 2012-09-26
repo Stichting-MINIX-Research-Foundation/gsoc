@@ -41,6 +41,11 @@
 
 #define TIMECYCLEKEY 't'
 
+#define ORDER_CPU	0
+#define ORDER_MEMORY	1
+#define ORDER_HIGHEST	ORDER_MEMORY
+int order = ORDER_CPU;
+
 u32_t system_hz;
 
 /* name of cpu cycle types, in the order they appear in /psinfo. */
@@ -157,7 +162,7 @@ void parse_file(pid_t pid)
 		}
 
 		p->p_effuid = effuid;
-	}
+	} else p->p_effuid = 0;
 
 	for(i = 1; i < CPUTIMENAMES; i++) {
 		if(fscanf(fp, " %lu %lu",
@@ -165,6 +170,12 @@ void parse_file(pid_t pid)
 			p->p_cpucycles[i] = make64(cycles_lo, cycles_hi);
 		} else	{
 			p->p_cpucycles[i] = make64(0, 0);
+		}
+	}
+
+	if ((p->p_flags & IS_TASK)) {
+		if(fscanf(fp, " %lu", &p->p_memory) != 1) {
+			p->p_memory = 0;
 		}
 	}
 
@@ -281,11 +292,17 @@ struct tp {
 	u64_t ticks;
 };
 
-int cmp_ticks(const void *v1, const void *v2)
+int cmp_procs(const void *v1, const void *v2)
 {
 	int c;
 	struct tp *p1 = (struct tp *) v1, *p2 = (struct tp *) v2;
 	int p1blocked, p2blocked;
+
+	if(order == ORDER_MEMORY) {
+		if(p1->p->p_memory < p2->p->p_memory) return 1;
+		if(p1->p->p_memory > p2->p->p_memory) return -1;
+		return 0;
+	}
 
 	p1blocked = !!(p1->p->p_flags & BLOCKED);
 	p2blocked = !!(p2->p->p_flags & BLOCKED);
@@ -300,9 +317,9 @@ int cmp_ticks(const void *v1, const void *v2)
 	 */
 
 	if(blockedverbose && (p1blocked || p2blocked)) {
-		if(!p1blocked &&  p2blocked)
+		if(!p1blocked && p2blocked)
 			return -1;
-		if( p2blocked && !p1blocked)
+		if(!p2blocked && p1blocked)
 			return 1;
 	} else if((c=cmp64(p1->ticks, p2->ticks)) != 0)
 		return -c;
@@ -447,7 +464,6 @@ void print_procs(int maxlines,
 		}
 		if(p-NR_TASKS == KERNEL) {
 			kernelticks = uticks;
-			continue;
 		}
 		if(!(proc2[p].p_flags & IS_TASK)) {
 			if(proc2[p].p_flags & IS_SYSTEM)
@@ -464,7 +480,7 @@ void print_procs(int maxlines,
 	if (!cmp64u(total_ticks, 0))
 		return;
 
-	qsort(tick_procs, nprocs, sizeof(tick_procs[0]), cmp_ticks);
+	qsort(tick_procs, nprocs, sizeof(tick_procs[0]), cmp_procs);
 
 	tcyc = div64u(total_ticks, SCALE);
 
@@ -497,7 +513,7 @@ void print_procs(int maxlines,
 
 		pr = tick_procs[p].p;
 
-		if(pr->p_flags & IS_TASK) {
+		if((pr->p_flags & IS_TASK) && pr->p_pid != KERNEL) {
 			/* skip old kernel tasks as they don't run anymore */
 			continue;
 		}
@@ -691,6 +707,11 @@ int main(int argc, char *argv[])
 					case 'q':
 						putchar('\r');
 						return 0;
+						break;
+					case 'o':
+						order++;
+						if(order > ORDER_HIGHEST)
+							order = 0;
 						break;
 					case TIMECYCLEKEY:
 						cputimemode++;

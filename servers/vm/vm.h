@@ -1,13 +1,10 @@
 
-#define NO_MEM ((phys_clicks) 0)  /* returned by alloc_mem() with mem is up */
-
 /* Memory flags to pt_allocmap() and alloc_mem(). */
 #define PAF_CLEAR	0x01	/* Clear physical memory. */
 #define PAF_CONTIG	0x02	/* Physically contiguous. */
 #define PAF_ALIGN64K	0x04	/* Aligned to 64k boundary. */
 #define PAF_LOWER16MB	0x08
 #define PAF_LOWER1MB	0x10
-#define PAF_FIRSTBLOCK	0x20	/* alloc_mem: return first block */
 #define PAF_ALIGN16K	0x40	/* Aligned to 16k boundary. */
 
 #define MARK do { if(mark) { printf("%d\n", __LINE__); } } while(0)
@@ -22,7 +19,6 @@
 /* VM behaviour */
 #define MEMPROTECT	0	/* Slab objects not mapped. Access with USE() */
 #define JUNKFREE	0	/* Fill freed pages with junk */
-#define NONCONTIGUOUS	0	/* Make phys pages max. noncontiguous */
 
 /* How noisy are we supposed to be? */
 #define VERBOSE		0
@@ -52,4 +48,5 @@
 #define WMF_VERIFY		0x08	/* Check pagetable contents. */
 
 #define MAP_NONE	0xFFFFFFFE
+#define NO_MEM ((phys_clicks) MAP_NONE)  /* returned by alloc_mem() with mem is up */
 

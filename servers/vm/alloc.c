@@ -1,17 +1,5 @@
 /* This file is concerned with allocating and freeing arbitrary-size blocks of
- * physical memory on behalf of the FORK and EXEC system calls.  The key data
- * structure used is the hole table, which maintains a list of holes in memory.
- * It is kept sorted in order of increasing memory address. The addresses
- * it contains refers to physical memory, starting at absolute address 0
- * (i.e., they are not relative to the start of PM).  During system
- * initialization, that part of memory containing the interrupt vectors,
- * kernel, and PM are "allocated" to mark them as not available and to
- * remove them from the hole list.
- *
- * The entry points into this file are:
- *   alloc_mem:	allocate a given sized chunk of memory
- *   free_mem:	release a previously allocated chunk of memory
- *   mem_init:	initialize the tables when PM start up
+ * physical memory.
  */
 
 #define _SYSTEM 1
@@ -38,122 +26,32 @@
 #include "proto.h"
 #include "util.h"
 #include "glo.h"
-#include "pagerange.h"
-#include "addravl.h"
 #include "sanitycheck.h"
 #include "memlist.h"
 
-/* AVL tree of free pages. */
-addr_avl addravl;
+/* Number of physical pages in a 32-bit address space */
+#define NUMBER_PHYSICAL_PAGES (0x100000000ULL/VM_PAGE_SIZE)
+#define PAGE_BITMAP_CHUNKS BITMAP_CHUNKS(NUMBER_PHYSICAL_PAGES)
+static bitchunk_t free_pages_bitmap[PAGE_BITMAP_CHUNKS];
+#define PAGE_CACHE_MAX 10000
+static int free_page_cache[PAGE_CACHE_MAX];
+static int free_page_cache_size = 0;
 
 /* Used for sanity check. */
 static phys_bytes mem_low, mem_high;
 
-struct hole {
-	struct hole *h_next;          /* pointer to next entry on the list */
-	phys_clicks h_base;           /* where does the hole begin? */
-	phys_clicks h_len;            /* how big is the hole? */
-	int freelist;
-	int holelist;
-};
-
-
-#define _NR_HOLES (_NR_PROCS*2)  /* No. of memory holes maintained by VM */
-
-static struct hole hole[_NR_HOLES];
-
-static struct hole *hole_head;	/* pointer to first hole */
-static struct hole *free_slots;/* ptr to list of unused table slots */
-
-static void del_slot(struct hole *prev_ptr, struct hole *hp);
-static void merge(struct hole *hp);
 static void free_pages(phys_bytes addr, int pages);
-static phys_bytes alloc_pages(int pages, int flags, phys_bytes *ret);
+static phys_bytes alloc_pages(int pages, int flags);
 
 #if SANITYCHECKS
-static void holes_sanity_f(char *fn, int line);
-#define CHECKHOLES holes_sanity_f(__FILE__, __LINE__)
-
-#define PAGESPERGB (1024*1024*1024/VM_PAGE_SIZE) /* 1GB of memory */
-#define MAXPAGES (2*PAGESPERGB)
-#define CHUNKS BITMAP_CHUNKS(MAXPAGES)
-static bitchunk_t pagemap[CHUNKS];
-
-#else
-#define CHECKHOLES 
+struct {
+	int used;
+	char *file;
+	int line;
+} pagemap[NUMBER_PHYSICAL_PAGES];
 #endif
 
-#if SANITYCHECKS
-
-/*===========================================================================*
- *				holes_sanity_f				     *
- *===========================================================================*/
-static void holes_sanity_f(file, line)
-char *file;
-int line;
-{
-#define myassert(c) { \
-  if(!(c)) { \
-	printf("holes_sanity_f:%s:%d: %s failed\n", file, line, #c); \
-	util_stacktrace();	\
-	panic("assert failed"); } \
-  }	
-
-	int h, c = 0, n = 0;
-	struct hole *hp;
-
-	/* Reset flags */
-	for(h = 0; h < _NR_HOLES; h++) {
-		hole[h].freelist = 0;
-		hole[h].holelist = 0;
-	}
-
-	/* Mark all holes on freelist. */
-	for(hp = free_slots; hp; hp = hp->h_next) {
-		myassert(!hp->freelist);
-		myassert(!hp->holelist);
-		hp->freelist = 1;
-		myassert(c < _NR_HOLES);
-		c++;
-		n++;
-	}
-
-	/* Mark all holes on holelist. */
-	c = 0;
-	for(hp = hole_head; hp; hp = hp->h_next) {
-		myassert(!hp->freelist);
-		myassert(!hp->holelist);
-		hp->holelist = 1;
-		myassert(c < _NR_HOLES);
-		c++;
-		n++;
-	}
-
-	/* Check there are exactly the right number of nodes. */
-	myassert(n == _NR_HOLES);
-
-	/* Make sure each slot is on exactly one of the list. */
-	c = 0;
-	for(h = 0; h < _NR_HOLES; h++) {
-		hp = &hole[h];
-		myassert(hp->holelist || hp->freelist);
-		myassert(!(hp->holelist && hp->freelist));
-		myassert(c < _NR_HOLES);
-		c++;
-	}
-
-	/* Make sure no holes overlap. */
-	for(hp = hole_head; hp && hp->h_next; hp = hp->h_next) {
-		myassert(hp->holelist);
-		hp->holelist = 1;
-		/* No holes overlap. */
-		myassert(hp->h_base + hp->h_len <= hp->h_next->h_base);
-
-		/* No uncoalesced holes. */
-		myassert(hp->h_base + hp->h_len < hp->h_next->h_base);
-	}
-}
-#endif
+#define page_isfree(i) GET_BIT(free_pages_bitmap, i)
 
 /*===========================================================================*
  *				alloc_mem				     *
@@ -176,16 +74,14 @@ phys_clicks alloc_mem(phys_clicks clicks, u32_t memflags)
 	clicks += align_clicks;
   }
 
-  mem = alloc_pages(clicks, memflags, NULL);
+  mem = alloc_pages(clicks, memflags);
   if(mem == NO_MEM) {
     free_yielded(clicks * CLICK_SIZE);
-    mem = alloc_pages(clicks, memflags, NULL);
+    mem = alloc_pages(clicks, memflags);
   }
 
   if(mem == NO_MEM)
   	return mem;
-
-CHECKHOLES;
 
   if(align_clicks) {
   	phys_clicks o;
@@ -197,7 +93,6 @@ CHECKHOLES;
 	  	mem += e;
 	}
   }
-CHECKHOLES;
 
   return mem;
 }
@@ -212,105 +107,11 @@ void free_mem(phys_clicks base, phys_clicks clicks)
  * to the hole list.  If it is contiguous with an existing hole on either end,
  * it is merged with the hole or holes.
  */
-  register struct hole *hp, *new_ptr, *prev_ptr;
-CHECKHOLES;
-
   if (clicks == 0) return;
 
   assert(CLICK_SIZE == VM_PAGE_SIZE);
   free_pages(base, clicks);
   return;
-
-  if ( (new_ptr = free_slots) == NULL) 
-  	panic("hole table full");
-  new_ptr->h_base = base;
-  new_ptr->h_len = clicks;
-  free_slots = new_ptr->h_next;
-  hp = hole_head;
-
-  /* If this block's address is numerically less than the lowest hole currently
-   * available, or if no holes are currently available, put this hole on the
-   * front of the hole list.
-   */
-  if (hp == NULL || base <= hp->h_base) {
-	/* Block to be freed goes on front of the hole list. */
-	new_ptr->h_next = hp;
-	hole_head = new_ptr;
-	merge(new_ptr);
-CHECKHOLES;
-	return;
-  }
-
-  /* Block to be returned does not go on front of hole list. */
-  prev_ptr = NULL;
-  while (hp != NULL && base > hp->h_base) {
-	prev_ptr = hp;
-	hp = hp->h_next;
-  }
-
-  /* We found where it goes.  Insert block after 'prev_ptr'. */
-  new_ptr->h_next = prev_ptr->h_next;
-  prev_ptr->h_next = new_ptr;
-  merge(prev_ptr);		/* sequence is 'prev_ptr', 'new_ptr', 'hp' */
-CHECKHOLES;
-}
-
-/*===========================================================================*
- *				del_slot				     *
- *===========================================================================*/
-static void del_slot(prev_ptr, hp)
-/* pointer to hole entry just ahead of 'hp' */
-register struct hole *prev_ptr;
-/* pointer to hole entry to be removed */
-register struct hole *hp;	
-{
-/* Remove an entry from the hole list.  This procedure is called when a
- * request to allocate memory removes a hole in its entirety, thus reducing
- * the numbers of holes in memory, and requiring the elimination of one
- * entry in the hole list.
- */
-  if (hp == hole_head)
-	hole_head = hp->h_next;
-  else
-	prev_ptr->h_next = hp->h_next;
-
-  hp->h_next = free_slots;
-  hp->h_base = hp->h_len = 0;
-  free_slots = hp;
-}
-
-/*===========================================================================*
- *				merge					     *
- *===========================================================================*/
-static void merge(hp)
-register struct hole *hp;	/* ptr to hole to merge with its successors */
-{
-/* Check for contiguous holes and merge any found.  Contiguous holes can occur
- * when a block of memory is freed, and it happens to abut another hole on
- * either or both ends.  The pointer 'hp' points to the first of a series of
- * three holes that can potentially all be merged together.
- */
-  register struct hole *next_ptr;
-
-  /* If 'hp' points to the last hole, no merging is possible.  If it does not,
-   * try to absorb its successor into it and free the successor's table entry.
-   */
-  if ( (next_ptr = hp->h_next) == NULL) return;
-  if (hp->h_base + hp->h_len == next_ptr->h_base) {
-	hp->h_len += next_ptr->h_len;	/* first one gets second one's mem */
-	del_slot(hp, next_ptr);
-  } else {
-	hp = next_ptr;
-  }
-
-  /* If 'hp' now points to the last hole, return; otherwise, try to absorb its
-   * successor into it.
-   */
-  if ( (next_ptr = hp->h_next) == NULL) return;
-  if (hp->h_base + hp->h_len == next_ptr->h_base) {
-	hp->h_len += next_ptr->h_len;
-	del_slot(hp, next_ptr);
-  }
 }
 
 /*===========================================================================*
@@ -329,20 +130,10 @@ struct memory *chunks;		/* list of free memory chunks */
  * are taken from the list headed by 'free_slots'.
  */
   int i, first = 0;
-  register struct hole *hp;
-
-  /* Put all holes on the free list. */
-  for (hp = &hole[0]; hp < &hole[_NR_HOLES]; hp++) {
-	hp->h_next = hp + 1;
-	hp->h_base = hp->h_len = 0;
-  }
-  hole[_NR_HOLES-1].h_next = NULL;
-  hole_head = NULL;
-  free_slots = &hole[0];
-
-  addr_init(&addravl);
 
   total_pages = 0;
+
+  memset(free_pages_bitmap, 0, sizeof(free_pages_bitmap));
 
   /* Use the chunks of physical memory to allocate holes. */
   for (i=NR_MEMS-1; i>=0; i--) {
@@ -356,154 +147,120 @@ struct memory *chunks;		/* list of free memory chunks */
 		first = 0;
 	}
   }
-
-  CHECKHOLES;
 }
 
 #if SANITYCHECKS
 void mem_sanitycheck(char *file, int line)
 {
-	pagerange_t *p, *prevp = NULL;
-	addr_iter iter;
-	addr_start_iter_least(&addravl, &iter);
-	while((p=addr_get_iter(&iter))) {
-		SLABSANE(p);
-		assert(p->size > 0);
-		if(prevp) {
-			assert(prevp->addr < p->addr);
-			assert(prevp->addr + prevp->size < p->addr);
-		}
-		usedpages_add(p->addr * VM_PAGE_SIZE, p->size * VM_PAGE_SIZE);
-		prevp = p;
-		addr_incr_iter(&iter);
+	int i;
+	for(i = 0; i < NUMBER_PHYSICAL_PAGES; i++) {
+		if(!page_isfree(i)) continue;
+		MYASSERT(usedpages_add(i * VM_PAGE_SIZE, VM_PAGE_SIZE) == OK);
 	}
 }
 #endif
 
 void memstats(int *nodes, int *pages, int *largest)
 {
-	pagerange_t *p;
-	addr_iter iter;
-	addr_start_iter_least(&addravl, &iter);
+	int i;
 	*nodes = 0;
 	*pages = 0;
 	*largest = 0;
 
-	while((p=addr_get_iter(&iter))) {
-		SLABSANE(p);
+	for(i = 0; i < NUMBER_PHYSICAL_PAGES; i++) {
+		int size = 0;
+		while(i < NUMBER_PHYSICAL_PAGES && page_isfree(i)) {
+			size++;
+			i++;
+		}
+		if(size == 0) continue;
 		(*nodes)++;
-		(*pages)+= p->size;
-		if(p->size > *largest)
-			*largest = p->size;
-		addr_incr_iter(&iter);
+		(*pages)+= size;
+		if(size > *largest)
+			*largest = size;
 	}
+}
+
+static int findbit(int low, int startscan, int pages, int memflags, int *len)
+{
+	int run_length = 0, i, freerange_start;
+
+	for(i = startscan; i >= low; i--) {
+		if(!page_isfree(i)) {
+			int pi;
+			int chunk = i/BITCHUNK_BITS, moved = 0;
+			run_length = 0;
+			pi = i;
+			while(chunk > 0 &&
+			   !MAP_CHUNK(free_pages_bitmap, chunk*BITCHUNK_BITS)) {
+				chunk--;
+				moved = 1;
+			}
+			if(moved) { i = chunk * BITCHUNK_BITS + BITCHUNK_BITS; }
+			continue;
+		}
+		if(!run_length) { freerange_start = i; run_length = 1; }
+		else { freerange_start--; run_length++; }
+		assert(run_length <= pages);
+		if(run_length == pages) {
+			/* good block found! */
+			*len = run_length;
+			return freerange_start;
+		}
+	}
+
+	return NO_MEM;
 }
 
 /*===========================================================================*
  *				alloc_pages				     *
  *===========================================================================*/
-static phys_bytes alloc_pages(int pages, int memflags, phys_bytes *len)
+static phys_bytes alloc_pages(int pages, int memflags)
 {
-	addr_iter iter;
-	pagerange_t *pr;
-	int incr;
 	phys_bytes boundary16 = 16 * 1024 * 1024 / VM_PAGE_SIZE;
 	phys_bytes boundary1  =  1 * 1024 * 1024 / VM_PAGE_SIZE;
-	phys_bytes mem;
-#if SANITYCHECKS
-	int firstnodes, firstpages, wantnodes, wantpages;
-	int finalnodes, finalpages;
-	int largest;
+	phys_bytes mem = NO_MEM;
+	int maxpage = NUMBER_PHYSICAL_PAGES - 1, i;
+	static int lastscan = -1;
+	int startscan, run_length;
 
-#if NONCONTIGUOUS
-	/* If NONCONTIGUOUS is on, allocate physical pages single
-	 * pages at a time, accomplished by returning single pages
-	 * if the caller can handle that (indicated by PAF_FIRSTBLOCK).
-	 */
-	if(memflags & PAF_FIRSTBLOCK) {
-		assert(!(memflags & PAF_CONTIG));
-		pages = 1;
-	}
-#endif
-
-	memstats(&firstnodes, &firstpages, &largest);
-	wantnodes = firstnodes;
-	wantpages = firstpages - pages;
-#endif
-
-	if(memflags & (PAF_LOWER16MB|PAF_LOWER1MB)) {
-		addr_start_iter_least(&addravl, &iter);
-		incr = 1;
-	} else {
-		addr_start_iter_greatest(&addravl, &iter);
-		incr = 0;
-	}
-
-	while((pr = addr_get_iter(&iter))) {
-		SLABSANE(pr);
-		assert(pr->size > 0);
-		if(pr->size >= pages || (memflags & PAF_FIRSTBLOCK)) {
-			if(memflags & PAF_LOWER16MB) {
-				if(pr->addr + pages > boundary16)
-					return NO_MEM;
+	if(memflags & PAF_LOWER16MB)
+		maxpage = boundary16 - 1;
+	else if(memflags & PAF_LOWER1MB)
+		maxpage = boundary1 - 1;
+	else {
+		/* no position restrictions: check page cache */
+		if(pages == 1) {
+			while(free_page_cache_size > 0) {
+				i = free_page_cache[free_page_cache_size-1];
+				if(page_isfree(i)) {
+					free_page_cache_size--;
+					mem = i;
+					assert(mem != NO_MEM);
+					run_length = 1;
+					break;
+				}
+				free_page_cache_size--;
 			}
-
-			if(memflags & PAF_LOWER1MB) {
-				if(pr->addr + pages > boundary1)
-					return NO_MEM;
-			}
-
-			/* good block found! */
-			break;
-		}
-		if(incr)
-			addr_incr_iter(&iter);
-		else
-			addr_decr_iter(&iter);
-	}
-
-	if(!pr) {
-		if(len)
-			*len = 0;
-#if SANITYCHECKS
-		assert(largest < pages);
-#endif
-	   return NO_MEM;
-	}
-
-	SLABSANE(pr);
-
-	if(memflags & PAF_FIRSTBLOCK) {
-		assert(len);
-		/* block doesn't have to as big as requested;
-		 * return its size though.
-		 */
-		if(pr->size < pages) {
-			pages = pr->size;
-#if SANITYCHECKS
-			wantpages = firstpages - pages;
-#endif
 		}
 	}
 
-	if(len)
-		*len = pages;
+	if(lastscan < maxpage && lastscan >= 0)
+		startscan = lastscan;
+	else	startscan = maxpage;
 
-	/* Allocated chunk is off the end. */
-	mem = pr->addr + pr->size - pages;
+	if(mem == NO_MEM)
+		mem = findbit(0, startscan, pages, memflags, &run_length);
+	if(mem == NO_MEM)
+		mem = findbit(0, maxpage, pages, memflags, &run_length);
+	if(mem == NO_MEM)
+		return NO_MEM;
 
-	assert(pr->size >= pages);
-	if(pr->size == pages) {
-		pagerange_t *prr;
-		prr = addr_remove(&addravl, pr->addr);
-		assert(prr);
-		assert(prr == pr);
-		SLABFREE(pr);
-#if SANITYCHECKS
-		wantnodes--;
-#endif
-	} else {
-		USE(pr, pr->size -= pages;);
+	/* remember for next time */
+	lastscan = mem;
+
+	for(i = mem; i < mem + pages; i++) {
+		UNSET_BIT(free_pages_bitmap, i);
 	}
 
 	if(memflags & PAF_CLEAR) {
@@ -513,13 +270,6 @@ static phys_bytes alloc_pages(int pages, int memflags, phys_bytes *len)
 			panic("alloc_mem: sys_memset failed: %d", s);
 	}
 
-#if SANITYCHECKS
-	memstats(&finalnodes, &finalpages, &largest);
-
-	assert(finalnodes == wantnodes);
-	assert(finalpages == wantpages);
-#endif
-
 	return mem;
 }
 
@@ -528,19 +278,7 @@ static phys_bytes alloc_pages(int pages, int memflags, phys_bytes *len)
  *===========================================================================*/
 static void free_pages(phys_bytes pageno, int npages)
 {
-	pagerange_t *pr, *p;
-	addr_iter iter;
-#if SANITYCHECKS
-	int firstnodes, firstpages, wantnodes, wantpages;
-	int finalnodes, finalpages, largest;
-
-	memstats(&firstnodes, &firstpages, &largest);
-
-	wantnodes = firstnodes;
-	wantpages = firstpages + npages;
-#endif
-
-	assert(!addr_search(&addravl, pageno, AVL_EQUAL));
+	int i, lim = pageno + npages - 1;
 
 #if JUNKFREE
        if(sys_memset(NONE, 0xa5a5a5a5, VM_PAGE_SIZE * pageno,
@@ -548,243 +286,12 @@ static void free_pages(phys_bytes pageno, int npages)
                        panic("free_pages: sys_memset failed");
 #endif
 
-	/* try to merge with higher neighbour */
-	if((pr=addr_search(&addravl, pageno+npages, AVL_EQUAL))) {
-		USE(pr, pr->addr -= npages;
-			pr->size += npages;);
-	} else {
-		if(!SLABALLOC(pr))
-			panic("alloc_pages: can't alloc");
-#if SANITYCHECKS
-		memstats(&firstnodes, &firstpages, &largest);
-
-		wantnodes = firstnodes;
-		wantpages = firstpages + npages;
-
-#endif
-		assert(npages > 0);
-		USE(pr, pr->addr = pageno;
-			 pr->size = npages;);
-		addr_insert(&addravl, pr);
-#if SANITYCHECKS
-		wantnodes++;
-#endif
-	}
-
-	addr_start_iter(&addravl, &iter, pr->addr, AVL_EQUAL);
-	p = addr_get_iter(&iter);
-	assert(p);
-	assert(p == pr);
-
-	addr_decr_iter(&iter);
-	if((p = addr_get_iter(&iter))) {
-		SLABSANE(p);
-		if(p->addr + p->size == pr->addr) {
-			USE(p, p->size += pr->size;);
-			addr_remove(&addravl, pr->addr);
-			SLABFREE(pr);
-#if SANITYCHECKS
-			wantnodes--;
-#endif
+	for(i = pageno; i <= lim; i++) {
+		SET_BIT(free_pages_bitmap, i);
+		if(free_page_cache_size < PAGE_CACHE_MAX) {
+			free_page_cache[free_page_cache_size++] = i;
 		}
 	}
-
-
-#if SANITYCHECKS
-	memstats(&finalnodes, &finalpages,  &largest);
-
-	assert(finalnodes == wantnodes);
-	assert(finalpages == wantpages);
-#endif
-}
-
-#define NR_DMA	16
-
-static struct dmatab
-{
-	int dt_flags;
-	endpoint_t dt_proc;
-	phys_bytes dt_base;
-	phys_bytes dt_size;
-	phys_clicks dt_seg_base;
-	phys_clicks dt_seg_size;
-} dmatab[NR_DMA];
-
-#define DTF_INUSE	1
-#define DTF_RELEASE_DMA	2
-#define DTF_RELEASE_SEG	4
-
-/*===========================================================================*
- *				do_adddma				     *
- *===========================================================================*/
-int do_adddma(message *msg)
-{
-	endpoint_t target_proc_e;
-	int i, proc_n;
-	phys_bytes base, size;
-	struct vmproc *vmp;
-
-	target_proc_e= msg->VMAD_EP;
-	base= msg->VMAD_START;
-	size= msg->VMAD_SIZE;
-
-	/* Find empty slot */
-	for (i= 0; i<NR_DMA; i++)
-	{
-		if (!(dmatab[i].dt_flags & DTF_INUSE))
-			break;
-	}
-	if (i >= NR_DMA)
-	{
-		printf("vm:do_adddma: dma table full\n");
-		for (i= 0; i<NR_DMA; i++)
-		{
-			printf("%d: flags 0x%x proc %d base 0x%lx size 0x%lx\n",
-				i, dmatab[i].dt_flags,
-				dmatab[i].dt_proc,
-				dmatab[i].dt_base,
-				dmatab[i].dt_size);
-		}
-		panic("adddma: table full");
-		return ENOSPC;
-	}
-
-	/* Find target process */
-	if (vm_isokendpt(target_proc_e, &proc_n) != OK)
-	{
-		printf("vm:do_adddma: endpoint %d not found\n", target_proc_e);
-		return EINVAL;
-	}
-	vmp= &vmproc[proc_n];
-	vmp->vm_flags |= VMF_HAS_DMA;
-
-	dmatab[i].dt_flags= DTF_INUSE;
-	dmatab[i].dt_proc= target_proc_e;
-	dmatab[i].dt_base= base;
-	dmatab[i].dt_size= size;
-
-	return OK;
-}
-
-/*===========================================================================*
- *				do_deldma				     *
- *===========================================================================*/
-int do_deldma(message *msg)
-{
-	endpoint_t target_proc_e;
-	int i, j;
-	phys_bytes base, size;
-
-	target_proc_e= msg->VMDD_EP;
-	base= msg->VMDD_START;
-	size= msg->VMDD_SIZE;
-
-	/* Find slot */
-	for (i= 0; i<NR_DMA; i++)
-	{
-		if (!(dmatab[i].dt_flags & DTF_INUSE))
-			continue;
-		if (dmatab[i].dt_proc == target_proc_e &&
-			dmatab[i].dt_base == base &&
-			dmatab[i].dt_size == size)
-		{
-			break;
-		}
-	}
-	if (i >= NR_DMA)
-	{
-		printf("vm:do_deldma: slot not found\n");
-		return ESRCH;
-	}
-
-	if (dmatab[i].dt_flags & DTF_RELEASE_SEG)
-	{
-		/* Check if we have to release the segment */
-		for (j= 0; j<NR_DMA; j++)
-		{
-			if (j == i)
-				continue;
-			if (!(dmatab[j].dt_flags & DTF_INUSE))
-				continue;
-			if (!(dmatab[j].dt_flags & DTF_RELEASE_SEG))
-				continue;
-			if (dmatab[i].dt_proc == target_proc_e)
-				break;
-		}
-		if (j >= NR_DMA)
-		{
-			/* Last segment */
-			free_mem(dmatab[i].dt_seg_base,
-				dmatab[i].dt_seg_size);
-		}
-	}
-
-	dmatab[i].dt_flags &= ~DTF_INUSE;
-
-	return OK;
-}
-
-/*===========================================================================*
- *				do_getdma				     *
- *===========================================================================*/
-int do_getdma(message *msg)
-{
-	int i;
-
-	/* Find slot to report */
-	for (i= 0; i<NR_DMA; i++)
-	{
-		if (!(dmatab[i].dt_flags & DTF_INUSE))
-			continue;
-		if (!(dmatab[i].dt_flags & DTF_RELEASE_DMA))
-			continue;
-
-		printf("do_getdma: setting reply to 0x%lx@0x%lx proc %d\n",
-			dmatab[i].dt_size, dmatab[i].dt_base,
-			dmatab[i].dt_proc);
-		msg->VMGD_PROCP= dmatab[i].dt_proc;
-		msg->VMGD_BASEP= dmatab[i].dt_base;
-		msg->VMGD_SIZEP= dmatab[i].dt_size;
-
-		return OK;
-	}
-
-	/* Nothing */
-	return EAGAIN;
-}
-
-
-
-/*===========================================================================*
- *				release_dma				     *
- *===========================================================================*/
-void release_dma(struct vmproc *vmp)
-{
-#if 0
-	int i, found_one;
-
-	found_one= FALSE;
-	for (i= 0; i<NR_DMA; i++)
-	{
-		if (!(dmatab[i].dt_flags & DTF_INUSE))
-			continue;
-		if (dmatab[i].dt_proc != vmp->vm_endpoint)
-			continue;
-		dmatab[i].dt_flags |= DTF_RELEASE_DMA | DTF_RELEASE_SEG;
-		dmatab[i].dt_seg_base= base;
-		dmatab[i].dt_seg_size= size;
-		found_one= TRUE;
-	}
-
-	if (!found_one)
-		free_mem(base, size);
-
-	msg->VMRD_FOUND = found_one;
-#else
-	panic("release_dma not done");
-#endif
-
-	return;
 }
 
 /*===========================================================================*
@@ -830,14 +337,21 @@ int usedpages_add_f(phys_bytes addr, phys_bytes len, char *file, int line)
 	while(pages > 0) {
 		phys_bytes thisaddr;
 		assert(pagestart > 0);
-		assert(pagestart < MAXPAGES);
+		assert(pagestart < NUMBER_PHYSICAL_PAGES);
 		thisaddr = pagestart * VM_PAGE_SIZE;
-		if(GET_BIT(pagemap, pagestart)) {
-			printf("%s:%d: usedpages_add: addr 0x%lx reused.\n",
-				file, line, thisaddr);
+		assert(pagestart >= 0);
+		assert(pagestart < NUMBER_PHYSICAL_PAGES);
+		if(pagemap[pagestart].used) {
+			static int warnings = 0;
+			if(warnings++ < 100)
+				printf("%s:%d: usedpages_add: addr 0x%lx reused, first %s:%d\n",
+					file, line, thisaddr, pagemap[pagestart].file, pagemap[pagestart].line);
+			util_stacktrace();
 			return EFAULT;
 		}
-		SET_BIT(pagemap, pagestart);
+		pagemap[pagestart].used = 1;
+		pagemap[pagestart].file = file;
+		pagemap[pagestart].line = line;
 		pages--;
 		pagestart++;
 	}
@@ -850,9 +364,9 @@ int usedpages_add_f(phys_bytes addr, phys_bytes len, char *file, int line)
 /*===========================================================================*
  *				alloc_mem_in_list			     *
  *===========================================================================*/
-struct memlist *alloc_mem_in_list(phys_bytes bytes, u32_t flags)
+struct memlist *alloc_mem_in_list(phys_bytes bytes, u32_t flags, phys_bytes known)
 {
-	phys_bytes rempages;
+	phys_bytes rempages, phys_count;
 	struct memlist *head = NULL, *tail = NULL;
 
 	assert(bytes > 0);
@@ -860,23 +374,28 @@ struct memlist *alloc_mem_in_list(phys_bytes bytes, u32_t flags)
 
 	rempages = bytes / VM_PAGE_SIZE;
 
-	/* unless we are told to allocate all memory
-	 * contiguously, tell alloc function to grab whatever
-	 * block it can find.
-	 */
-	if(!(flags & PAF_CONTIG))
-		flags |= PAF_FIRSTBLOCK;
+	assert(!(flags & PAF_CONTIG));
+
+	if(known != MAP_NONE) {
+		phys_count = known;
+	}
 
 	do {
 		struct memlist *ml;
-		phys_bytes mem, gotpages;
+		phys_bytes mem;
 		vir_bytes freed = 0;
 
 		do {
-			mem = alloc_pages(rempages, flags, &gotpages);
+			if(known == MAP_NONE) {
+				mem = alloc_pages(1, flags);
 
-			if(mem == NO_MEM) {
-				freed = free_yielded(rempages * VM_PAGE_SIZE);
+				if(mem == NO_MEM) {
+					freed = free_yielded(rempages * VM_PAGE_SIZE);
+				}
+			} else {
+				mem = ABS2CLICK(phys_count);
+				phys_count += VM_PAGE_SIZE;
+				assert(mem != NO_MEM);
 			}
 		} while(mem == NO_MEM && freed > 0);
 
@@ -888,19 +407,13 @@ struct memlist *alloc_mem_in_list(phys_bytes bytes, u32_t flags)
 			return NULL;
 		}
 
-		assert(gotpages <= rempages);
-		assert(gotpages > 0);
-
 		if(!(SLABALLOC(ml))) {
 			free_mem_list(head, 1);
-			free_pages(mem, gotpages);
+			free_pages(mem, VM_PAGE_SIZE);
 			return NULL;
 		}
 
-		USE(ml,
-			ml->phys = CLICK2ABS(mem);
-			ml->length = CLICK2ABS(gotpages);
-			ml->next = NULL;);
+		USE(ml, ml->phys = CLICK2ABS(mem); ml->next = NULL;);
 		if(tail) {
 			USE(tail,
 				tail->next = ml;);
@@ -908,23 +421,8 @@ struct memlist *alloc_mem_in_list(phys_bytes bytes, u32_t flags)
 		tail = ml;
 		if(!head)
 			head = ml;
-		rempages -= gotpages;
+		rempages--;
 	} while(rempages > 0);
-
-    {
-	struct memlist *ml;
-	for(ml = head; ml; ml = ml->next) {
-		assert(ml->phys);
-		assert(ml->length);
-#if NONCONTIGUOUS
-		if(!(flags & PAF_CONTIG)) {
-			assert(ml->length == VM_PAGE_SIZE);
-			if(ml->next)
-				assert(ml->phys + ml->length != ml->next->phys);
-		}
-#endif
-	}
-    }
 
 	return head;
 }
@@ -938,10 +436,8 @@ void free_mem_list(struct memlist *list, int all)
 		struct memlist *next;
 		next = list->next;
 		assert(!(list->phys % VM_PAGE_SIZE));
-		assert(!(list->length % VM_PAGE_SIZE));
 		if(all)
-			free_pages(list->phys / VM_PAGE_SIZE,
-			list->length / VM_PAGE_SIZE);
+			free_pages(list->phys / VM_PAGE_SIZE, 1);
 		SLABFREE(list);
 		list = next;
 	}
@@ -953,8 +449,7 @@ void free_mem_list(struct memlist *list, int all)
 void print_mem_list(struct memlist *list)
 {
 	while(list) {
-		assert(list->length > 0);
-		printf("0x%lx-0x%lx", list->phys, list->phys+list->length-1);
+		printf("0x%lx-0x%lx", list->phys, list->phys+VM_PAGE_SIZE-1);
 		printf(" ");
 		list = list->next;
 	}

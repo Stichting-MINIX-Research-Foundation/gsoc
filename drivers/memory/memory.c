@@ -15,6 +15,7 @@
  *	Apr 20, 1992	device dependent/independent split  (Kees J. Bot)
  */
 
+#include <assert.h>
 #include <minix/drivers.h>
 #include <minix/chardriver.h>
 #include <minix/blockdriver.h>
@@ -89,16 +90,13 @@ static struct blockdriver m_bdtab = {
   NULL			/* no threading support */
 };
 
-/* Buffer for the /dev/zero null byte feed. */
-#define ZERO_BUF_SIZE			1024
-static char dev_zero[ZERO_BUF_SIZE];
-
 #define click_to_round_k(n) \
 	((unsigned) ((((unsigned long) (n) << CLICK_SHIFT) + 512) / 1024))
 
 /* SEF functions and variables. */
 static void sef_local_startup(void);
 static int sef_cb_init_fresh(int type, sef_init_info_t *info);
+
 
 /*===========================================================================*
  *				   main 				     *
@@ -173,11 +171,6 @@ static int sef_cb_init_fresh(int UNUSED(type), sef_init_info_t *UNUSED(info))
   m_geom[IMGRD_DEV].dv_size= cvul64(imgrd_size);
   m_vaddrs[IMGRD_DEV] = (vir_bytes) imgrd;
 
-  /* Initialize /dev/zero. Simply write zeros into the buffer. */
-  for (i=0; i<ZERO_BUF_SIZE; i++) {
-       dev_zero[i] = '\0';
-  }
-
   for(i = 0; i < NR_DEVS; i++)
 	openct[i] = 0;
 
@@ -235,7 +228,7 @@ static int m_transfer(
 )
 {
 /* Read or write one the driver's character devices. */
-  unsigned count, left, chunk;
+  unsigned count;
   vir_bytes vir_offset = 0;
   struct device *dv;
   unsigned long dv_size;
@@ -352,19 +345,10 @@ static int m_transfer(
 
 	/* Null byte stream generator. */
 	case ZERO_DEV:
-	    if (opcode == DEV_GATHER_S) {
-		size_t suboffset = 0;
-	        left = count;
-		while (left > 0) {
-		    chunk = (left > ZERO_BUF_SIZE) ? ZERO_BUF_SIZE : left;
-	             s=sys_safecopyto(endpt, grant,
-		       vir_offset+suboffset, (vir_bytes) dev_zero, chunk);
-		    if(s != OK)
-		        return s;
-		    left -= chunk;
-	            suboffset += chunk;
-		}
-	    }
+	    if (opcode == DEV_GATHER_S)
+	        if ((s = sys_safememset(endpt, grant, 0, '\0', count)) != OK)
+		    return s;
+
 	    break;
 
 	}
@@ -528,30 +512,6 @@ static int m_block_close(dev_t minor)
   }
   openct[minor]--;
 
-#if 0
-  /* Special case: free initial ramdisk after it's been unmounted once. */
-  if(minor == IMGRD_DEV && openct[minor] == 0 && m_vaddrs[IMGRD_DEV]) {
-	vir_bytes vaddr, vlen;
-	vaddr = m_vaddrs[IMGRD_DEV];
-	vlen = imgrd_size;
-	/* Align `inwards' so as to not unmap more than the initial
-	 * ramdisk image.
-	 */
-	if(vaddr % PAGE_SIZE) {
-		vir_bytes o = PAGE_SIZE - (vaddr % PAGE_SIZE);
-		vlen -= o;
-		vaddr += o;
-	}
-	if(vlen % PAGE_SIZE) {
-		vlen -= vlen % PAGE_SIZE;
-	}
-	minix_munmap((void *) vaddr, vlen);
-	m_geom[IMGRD_DEV].dv_base= cvul64(0);
-	m_geom[IMGRD_DEV].dv_size= cvul64(0);
-	m_vaddrs[IMGRD_DEV] = 0;
-  }
-#endif
-
   return(OK);
 }
 
@@ -569,15 +529,20 @@ static int m_block_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
   u32_t ramdev_size;
   int s;
   void *mem;
+  int is_imgrd = 0;
 
   if (request != MIOCRAMSIZE)
 	return EINVAL;
+
+  if(minor == IMGRD_DEV) 
+	is_imgrd = 1;
 
   /* Someone wants to create a new RAM disk with the given size.
    * A ramdisk can be created only once, and only on RAM disk device.
    */
   if ((dv = m_block_part(minor)) == NULL) return ENXIO;
-  if((minor < RAM_DEV_FIRST || minor > RAM_DEV_LAST) && minor != RAM_DEV_OLD) {
+  if((minor < RAM_DEV_FIRST || minor > RAM_DEV_LAST) &&
+  	minor != RAM_DEV_OLD && !is_imgrd) {
 	printf("MEM: MIOCRAMSIZE: %d not a ramdisk\n", minor);
 	return EINVAL;
   }
@@ -587,6 +552,8 @@ static int m_block_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 	sizeof(ramdev_size));
   if (s != OK)
 	return s;
+  if(is_imgrd)
+  	ramdev_size = 0;
   if(m_vaddrs[minor] && !cmp64(dv->dv_size, cvul64(ramdev_size))) {
 	return(OK);
   }
@@ -597,21 +564,37 @@ static int m_block_ioctl(dev_t minor, unsigned int request, endpoint_t endpt,
 	return(EBUSY);
   }
   if(m_vaddrs[minor]) {
-	u32_t size;
+	u32_t a, o;
+	u64_t size;
+	int r;
 	if(ex64hi(dv->dv_size)) {
 		panic("huge old ramdisk");
 	}
-	size = ex64lo(dv->dv_size);
-	minix_munmap((void *) m_vaddrs[minor], size);
+	size = dv->dv_size;
+	a = m_vaddrs[minor];
+	if((o = a % PAGE_SIZE)) {
+		vir_bytes l = PAGE_SIZE - o;
+		a += l;
+		size -= l;
+	}
+	size = rounddown(size, PAGE_SIZE);
+	r = minix_munmap((void *) a, size);
+	if(r != OK) {
+		printf("memory: WARNING: munmap failed: %d\n", r);
+	}
 	m_vaddrs[minor] = (vir_bytes) NULL;
+	dv->dv_size = 0;
   }
 
 #if DEBUG
   printf("MEM:%d: allocating ramdisk of size 0x%x\n", minor, ramdev_size);
 #endif
 
+  mem = NULL;
+
   /* Try to allocate a piece of memory for the RAM disk. */
-  if((mem = minix_mmap(NULL, ramdev_size, PROT_READ|PROT_WRITE,
+  if(ramdev_size > 0 &&
+  	(mem = minix_mmap(NULL, ramdev_size, PROT_READ|PROT_WRITE,
 		MAP_PREALLOC|MAP_ANON, -1, 0)) == MAP_FAILED) {
 	printf("MEM: failed to get memory for ramdisk\n");
 	return(ENOMEM);

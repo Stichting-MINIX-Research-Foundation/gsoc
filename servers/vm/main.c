@@ -294,6 +294,10 @@ void exec_bootproc(struct vmproc *vmp, struct boot_image *ip)
         if(sys_exec(vmp->vm_endpoint, (char *) execi->stack_high - 12,
 		(char *) ip->proc_name, execi->pc) != OK)
 		panic("vm: boot process exec of %d failed\n", vmp->vm_endpoint);
+
+	/* make it runnable */
+	if(sys_vmctl(vmp->vm_endpoint, VMCTL_BOOTINHIBIT_CLEAR, 0) != OK)
+		panic("VMCTL_BOOTINHIBIT_CLEAR failed");
 }
 
 void init_vm(void)
@@ -301,6 +305,7 @@ void init_vm(void)
 	int s, i;
 	static struct memory mem_chunks[NR_MEMS];
 	static struct boot_image *ip;
+	extern void __minix_init(void);
 
 #if SANITYCHECKS
 	incheck = nocheck = 0;
@@ -317,8 +322,6 @@ void init_vm(void)
 
 #if SANITYCHECKS
 	env_parse("vm_sanitychecklevel", "d", 0, &vm_sanitychecklevel, 0, SCL_MAX);
-
-	vm_sanitychecklevel = 1;
 #endif
 
 	/* Get chunks of available memory. */
@@ -334,13 +337,12 @@ void init_vm(void)
 	/* region management initialization. */
 	map_region_init();
 
+	/* Initialize tables to all physical memory. */
+	mem_init(mem_chunks);
+
 	/* Architecture-dependent initialization. */
 	init_proc(VM_PROC_NR);
 	pt_init();
-
-	/* Initialize tables to all physical memory. */
-	mem_init(mem_chunks);
-	meminit_done = 1;
 
 	/* Give these processes their own page table. */
 	for (ip = &kernel_boot_info.boot_procs[0];
@@ -384,7 +386,6 @@ void init_vm(void)
 	/* Basic VM calls. */
 	CALLMAP(VM_MMAP, do_mmap);
 	CALLMAP(VM_MUNMAP, do_munmap);
-	CALLMAP(VM_MUNMAP_TEXT, do_munmap);
 	CALLMAP(VM_MAP_PHYS, do_map_phys);
 	CALLMAP(VM_UNMAP_PHYS, do_unmap_phys);
 
@@ -393,9 +394,6 @@ void init_vm(void)
 	CALLMAP(VM_FORK, do_fork);
 	CALLMAP(VM_BRK, do_brk);
 	CALLMAP(VM_WILLEXIT, do_willexit);
-	CALLMAP(VM_ADDDMA, do_adddma);
-	CALLMAP(VM_DELDMA, do_deldma);
-	CALLMAP(VM_GETDMA, do_getdma);
 	CALLMAP(VM_NOTIFY_SIG, do_notify_sig);
 
 	/* Calls from RS */
@@ -421,6 +419,11 @@ void init_vm(void)
 
 	/* Initialize the structures for queryexit */
 	init_query_exit();
+
+	/* Acquire kernel ipc vectors that weren't available
+	 * before VM had determined kernel mappings
+	 */
+	__minix_init();
 }
 
 /*===========================================================================*

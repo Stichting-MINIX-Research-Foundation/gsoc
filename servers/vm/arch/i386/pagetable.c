@@ -36,6 +36,8 @@
 
 #include "memory.h"
 
+static int vm_self_pages;
+
 /* PDE used to map in kernel, kernel physical address. */
 static int pagedir_pde = -1;
 static u32_t global_bit = 0, pagedir_pde_val;
@@ -54,12 +56,21 @@ struct vmproc *vmprocess = &vmproc[VM_PROC_NR];
  * circular dependency on allocating memory and writing it into VM's
  * page table.
  */
+#if SANITYCHECKS
+#define SPAREPAGES 100
+#define STATIC_SPAREPAGES 90
+#else
 #define SPAREPAGES 15
+#define STATIC_SPAREPAGES 10
+#endif
 int missing_spares = SPAREPAGES;
 static struct {
 	void *page;
 	phys_bytes phys;
 } sparepages[SPAREPAGES];
+
+extern char _end;	
+#define is_staticaddr(v) ((vir_bytes) (v) < (vir_bytes) &_end)
 
 #define MAX_KERNMAPPINGS 10
 static struct {
@@ -85,9 +96,8 @@ int kernmappings = 0;
 phys_bytes page_directories_phys;
 u32_t *page_directories = NULL;
 
-#define STATIC_SPAREPAGES 10
-
-static char static_sparepages[I386_PAGE_SIZE*STATIC_SPAREPAGES + I386_PAGE_SIZE] __aligned(I386_PAGE_SIZE);
+static char static_sparepages[I386_PAGE_SIZE*STATIC_SPAREPAGES] 
+	__aligned(I386_PAGE_SIZE);
 
 #if SANITYCHECKS
 /*===========================================================================*
@@ -125,7 +135,6 @@ static u32_t findhole(void)
 	int pde = 0, try_restart;
 	static u32_t lastv = 0;
 	pt_t *pt = &vmprocess->vm_pt;
-	extern char _end;	
 	vir_bytes vmin, vmax;
 
 	vmin = (vir_bytes) (&_end) & I386_VM_ADDR_MASK; /* marks end of VM BSS */
@@ -180,22 +189,21 @@ static u32_t findhole(void)
 /*===========================================================================*
  *				vm_freepages		     		     *
  *===========================================================================*/
-static void vm_freepages(vir_bytes vir, vir_bytes phys, int pages, int reason)
+void vm_freepages(vir_bytes vir, int pages)
 {
-	assert(reason >= 0 && reason < VMP_CATEGORIES);
 	assert(!(vir % I386_PAGE_SIZE)); 
-	assert(!(phys % I386_PAGE_SIZE)); 
-	extern char _end;	
 
-	if(vir < (vir_bytes) &_end) {
+	if(is_staticaddr(vir)) {
 		printf("VM: not freeing static page\n");
 		return;
 	}
 
-	free_mem(ABS2CLICK(phys), pages);
 	if(pt_writemap(vmprocess, &vmprocess->vm_pt, vir,
-		MAP_NONE, pages*I386_PAGE_SIZE, 0, WMF_OVERWRITE) != OK)
+		MAP_NONE, pages*I386_PAGE_SIZE, 0,
+		WMF_OVERWRITE | WMF_FREE) != OK)
 		panic("vm_freepages: pt_writemap failed");
+
+	vm_self_pages--;
 
 #if SANITYCHECKS
 	/* If SANITYCHECKS are on, flush tlb so accessing freed pages is
@@ -254,6 +262,8 @@ static void *vm_checkspares(void)
 	return NULL;
 }
 
+static int pt_init_done;
+
 /*===========================================================================*
  *				vm_allocpage		     		     *
  *===========================================================================*/
@@ -275,7 +285,7 @@ void *vm_allocpage(phys_bytes *phys, int reason)
 	assert(level >= 1);
 	assert(level <= 2);
 
-	if(level > 1 || !meminit_done) {
+	if((level > 1) || !pt_init_done) {
 		void *s;
 		s=vm_getsparepage(phys);
 		level--;
@@ -283,6 +293,7 @@ void *vm_allocpage(phys_bytes *phys, int reason)
 			util_stacktrace();
 			printf("VM: warning: out of spare pages\n");
 		}
+		if(!is_staticaddr(s)) vm_self_pages++;
 		return s;
 	}
 
@@ -325,6 +336,7 @@ void *vm_allocpage(phys_bytes *phys, int reason)
 	/* Return user-space-ready pointer to it. */
 	ret = (void *) loc;
 
+	vm_self_pages++;
 	return ret;
 }
 
@@ -1014,8 +1026,9 @@ void pt_init(void)
 
 	/* Inform kernel vm has a newly built page table. */
 	assert(vmproc[VM_PROC_NR].vm_endpoint == VM_PROC_NR);
-	pt_mapkernel(newpt);
 	pt_bind(newpt, &vmproc[VM_PROC_NR]);
+
+	pt_init_done = 1;
 
         /* All OK. */
         return;
@@ -1072,8 +1085,7 @@ void pt_free(pt_t *pt)
 
 	for(i = 0; i < I386_VM_DIR_ENTRIES; i++)
 		if(pt->pt_pt[i])
-			vm_freepages((vir_bytes) pt->pt_pt[i],
-				I386_VM_PFA(pt->pt_dir[i]), 1, VMP_PAGETABLE);
+			vm_freepages((vir_bytes) pt->pt_pt[i], 1);
 
 	return;
 }
@@ -1130,3 +1142,4 @@ void pt_cycle(void)
 	vm_checkspares();
 }
 
+int get_vm_self_pages(void) { return vm_self_pages; }
