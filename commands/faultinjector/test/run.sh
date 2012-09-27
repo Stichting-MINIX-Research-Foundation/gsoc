@@ -31,12 +31,12 @@ function do_test(){
     awk "/$STATS_LINE/,/asdfasdfas/{if (!/$STATS_LINE/)print}" $FAULT_OUT >> $FAULT_OUT_FILTERED
 
 
-    diff $TEST_DIR/$REF_OUT $FAULT_OUT_FILTERED > /dev/null
+    diff -b $TEST_DIR/$REF_OUT $FAULT_OUT_FILTERED > /dev/null
     DIFF_EXIT_CODE=$?
 
     if [ $DIFF_EXIT_CODE -ne 0 ]; then
         echo ERROR: diff of output with reference output:
-        diff -u no-load/$REF_OUT $FAULT_OUT
+        diff -ub $TEST_DIR/$REF_OUT $FAULT_OUT_FILTERED
         exit 1
     fi
    
