@@ -11,7 +11,7 @@
 volatile int magic_ensure_linkage = ((int) &rand);
 
 int faultinjection_enabled = 0;
-int fault_count_no_load = 0, fault_count_rnd_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0, fault_count_corrupt_integer = 0, fault_count_corrupt_index = 0, fault_count_corrupt_operator = 0;
+int fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0, fault_count_corrupt_integer = 0, fault_count_corrupt_index = 0, fault_count_corrupt_operator = 0;
 
 int lh=4, rh=3, condition=~0;
 
@@ -77,6 +77,7 @@ void fault_test(){
     printf("fault_test_rnd_load_end\n");
     printf("fault_test_no_store_start\n");
     fault_test_no_store();
+    fault_test_no_store();
     printf("fault_test_no_store_end\n");
     printf("fault_test_flip_bool_start\n");
     fault_test_flip_bool();
@@ -109,9 +110,6 @@ void fault_print_stats(){
 volatile int magic_ensure_linkage2 = (int) &fault_print_stat;
 
 void fault_print_stats_old(){
-    printf("   no load:  %d\n", fault_count_no_load);
-    printf("   rnd load:  %d\n", fault_count_rnd_load);
-    printf("   no store: %d\n", fault_count_no_store);
     printf("   flip bool: %d\n", fault_count_flip_bool);
     printf("   flip branch: %d\n", fault_count_flip_branch);
     printf("   corrupt pointer: %d\n", fault_count_corrupt_pointer);

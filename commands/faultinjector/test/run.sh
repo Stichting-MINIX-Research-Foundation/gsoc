@@ -23,7 +23,7 @@ function do_test(){
 
     LLVM_CONF=FAULT make clean;
 
-    LLVM_CONF=FAULT LLVM_PASS_ARGS="$ARGS" make all
+    LLVM_CONF=FAULT LLVM_PASS_ARGS="$ARGS" make all || exit 1
 
     ./faulttest $RAND_SEED > $FAULT_OUT
 

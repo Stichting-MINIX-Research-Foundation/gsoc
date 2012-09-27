@@ -8,7 +8,7 @@ using namespace llvm;
 class FaultType{
 public:
     virtual bool isApplicable(Instruction *I) = 0;
-    virtual void apply(Instruction *I) = 0;
+    virtual Instruction *apply(Instruction *I) = 0;
     virtual char *getName() = 0;
     virtual int getProbability() = 0;
 
@@ -19,7 +19,7 @@ public:
 
 #define FAULT_MEMBERS \
     bool isApplicable(Instruction *I); \
-    void apply(Instruction *I); \
+    Instruction *apply(Instruction *I); \
     static cl::opt<int> prob;\
     char *getName();\
     int getProbability(){\
@@ -30,4 +30,15 @@ class SwapFault : public FaultType {
     public: FAULT_MEMBERS
 };
 
+class NoLoadFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class RndLoadFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class NoStoreFault : public FaultType {
+    public: FAULT_MEMBERS
+};
 

@@ -1,9 +1,9 @@
 corrupt operator: 1
 corrupt operator: 5.000000
    swap:     0
-   no load:  0
-   rnd load:  0
-   no store: 0
+   no-load:  0
+   rnd-load:  0
+   no-store: 0
    flip bool: 0
    flip branch: 0
    corrupt pointer: 0

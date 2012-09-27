@@ -1,8 +1,8 @@
 fault_test: 0
    swap:     0
-   no load:  3
-   rnd load:  0
-   no store: 0
+   no-load:  3
+   rnd-load:  0
+   no-store: 0
    flip bool: 0
    flip branch: 0
    corrupt pointer: 0

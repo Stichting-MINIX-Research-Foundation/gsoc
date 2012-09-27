@@ -37,21 +37,6 @@ prob_global("fault-prob-global",
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<int>
-prob_no_load("fault-prob-no-load",
-        cl::desc("Fault Injector: load instruction loading '0' fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
-prob_rnd_load("fault-prob-rnd-load",
-        cl::desc("Fault Injector: load instruction loading 'rnd()' fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
-prob_no_store("fault-prob-no-store",
-        cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
 prob_flip_bool("fault-prob-flip-bool",
         cl::desc("Fault Injector: flip boolean value fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
@@ -115,16 +100,13 @@ namespace llvm{
             exit(1);
         }
 
-        GlobalVariable* fault_count_no_load_var = M.getNamedGlobal("fault_count_no_load");
-        GlobalVariable* fault_count_rnd_load_var = M.getNamedGlobal("fault_count_rnd_load");
-        GlobalVariable* fault_count_no_store_var = M.getNamedGlobal("fault_count_no_store");
         GlobalVariable* fault_count_flip_bool_var = M.getNamedGlobal("fault_count_flip_bool");
         GlobalVariable* fault_count_flip_branch_var = M.getNamedGlobal("fault_count_flip_branch");
         GlobalVariable* fault_count_corrupt_pointer_var = M.getNamedGlobal("fault_count_corrupt_pointer");
         GlobalVariable* fault_count_corrupt_integer_var = M.getNamedGlobal("fault_count_corrupt_integer");
         GlobalVariable* fault_count_corrupt_index_var = M.getNamedGlobal("fault_count_corrupt_index");
         GlobalVariable* fault_count_corrupt_operator_var = M.getNamedGlobal("fault_count_corrupt_operator");
-        if(!fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var || !fault_count_corrupt_index_var || !fault_count_corrupt_operator_var) {
+        if(!fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var || !fault_count_corrupt_index_var || !fault_count_corrupt_operator_var) {
             errs() << "Error: no fault counter variable found";
             exit(1);
         }
@@ -141,6 +123,15 @@ namespace llvm{
 
         SwapFault FS;
         FS.addToModule(M);
+
+        NoLoadFault NL;
+        NL.addToModule(M);
+
+        RndLoadFault RL;
+        RL.addToModule(M);
+
+        NoStoreFault NS;
+        NS.addToModule(M);
 
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
             Function *F = it;
@@ -227,7 +218,6 @@ namespace llvm{
                     errs() << "> ";
                     val->print(errs());
                     errs() << "\n";
-                    bool removed = false;
                     nextII=II;
                     nextII++;
 
@@ -239,47 +229,35 @@ namespace llvm{
                     do{        
                         if(FS.isApplicable(val)){
                             if((rand() % 1000) < FS.getProbability()){
-                                FS.apply(val);
-                                count_incr(FS.fault_count, val, M);
+                                val = FS.apply(val);
+                                count_incr(FS.fault_count, nextII, M);
                                 continue;
                             }
                         }
 
-                        if(LoadInst *LI = dyn_cast<LoadInst>(val)){
-                            if(LI->getOperand(0)->getType()->getContainedType(0)->isIntegerTy()){
-                                Value *newValue;
-                                bool doReplace = false;
-                                if((rand() % 1000) < prob_no_load){
-                                    /* load 0 instead of target value. */
-                                    newValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
-                                    count_incr(fault_count_no_load_var, nextII, M);
-                                    doReplace=true;
-                                }else if((rand() % 1000) < prob_rnd_load){
-                                    if(val->getType()->isIntegerTy(32)){
-                                        newValue = CallInst::Create(RandFunc, "", nextII);
-                                        count_incr(fault_count_rnd_load_var, nextII, M);
-                                        doReplace=true;
-                                    }
-                                }
-                                
-                                if(doReplace){
-                                    LI->replaceAllUsesWith(newValue);
-                                    LI->eraseFromParent();
-                                    val = (Instruction*) newValue;
-                                    continue;
-                                }
-                            }
-                        }
-
-                        if(StoreInst *SI = dyn_cast<StoreInst>(val)){
-                            if((rand() % 1000) < prob_no_store){
-                                /* remove store instruction */
-                                count_incr(fault_count_no_store_var, II, M);
-                                SI->eraseFromParent();
-                                removed=true;
+                        if(NL.isApplicable(val)){
+                            if((rand() % 1000) < NL.getProbability()){
+                                val = NL.apply(val);
+                                count_incr(NL.fault_count, nextII, M);
                                 continue;
                             }
                         }
+                        
+                        if(RL.isApplicable(val)){
+                            if((rand() % 1000) < RL.getProbability()){
+                                val = RL.apply(val);
+                                count_incr(RL.fault_count, nextII, M);
+                                continue;
+                            }
+                        } 
+
+                        if(NS.isApplicable(val)){
+                            if((rand() % 1000) < NS.getProbability()){
+                                val = NS.apply(val);
+                                count_incr(NS.fault_count, nextII, M);
+                                continue;
+                            }
+                        } 
 
                         if(val->getType()->isIntegerTy(1)){
                             
@@ -383,7 +361,7 @@ namespace llvm{
                                 BO->eraseFromParent();
                                 
                                 count_incr(fault_count_corrupt_operator_var, nextII, M);
-                                removed=true;
+                                val=NULL;
                                 errs() << "< replaced with: ";
                                 Replacement->print(errs());
                                 errs() << "\n";
@@ -395,7 +373,7 @@ namespace llvm{
                     while(false);
 
                     errs() << "< ";
-                    if(removed){
+                    if(!val){
                         errs() << "<removed>\n";
                     }else{
                         val->print(errs());

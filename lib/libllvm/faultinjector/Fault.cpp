@@ -68,12 +68,89 @@ bool SwapFault::isApplicable(Instruction *I){
     return dyn_cast<BinaryOperator>(I) != NULL;
 }
 
-void SwapFault::apply(Instruction *I){
+Instruction *SwapFault::apply(Instruction *I){
     BinaryOperator *Op = dyn_cast<BinaryOperator>(I);
     /* switch operands of binary instructions */
     /* todo: if(op1.type == op2.type */
     Value *tmp = Op->getOperand(0);
     Op->setOperand(0, Op->getOperand(1));
     Op->setOperand(1, tmp);
+    return I;
 }
+
+/* NoLoadFault ******************************************************************/
+
+cl::opt<int>
+NoLoadFault::prob("fault-prob-no-load",
+        cl::desc("Fault Injector: load instruction loading '0' fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+char noLoadName[] = "no-load";
+char *NoLoadFault::getName(){
+    return noLoadName;
+}
+
+bool NoLoadFault::isApplicable(Instruction *I){
+    return dyn_cast<LoadInst>(I) && dyn_cast<LoadInst>(I)->getOperand(0)->getType()->getContainedType(0)->isIntegerTy();
+}
+
+Instruction *NoLoadFault::apply(Instruction *I){
+    LoadInst *LI = dyn_cast<LoadInst>(I);
+    Value *newValue;
+    /* load 0 instead of target value. */
+    newValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
+    LI->replaceAllUsesWith(newValue);
+    LI->eraseFromParent();
+    return (Instruction*) newValue;
+}
+
+/* RndLoadFault ******************************************************************/
+
+cl::opt<int>
+RndLoadFault::prob("fault-prob-rnd-load",
+        cl::desc("Fault Injector: load instruction loading 'rnd()' fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+char rndLoadName[] = "rnd-load";
+char *RndLoadFault::getName(){
+    return rndLoadName;
+}
+
+bool RndLoadFault::isApplicable(Instruction *I){
+    return dyn_cast<LoadInst>(I) && dyn_cast<LoadInst>(I)->getOperand(0)->getType()->getContainedType(0)->isIntegerTy() && I->getType()->isIntegerTy(32);
+}
+
+Instruction *RndLoadFault::apply(Instruction *I){
+    Function *RandFunc = I->getParent()->getParent()->getParent()->getFunction("rand");
+    assert(RandFunc);
+    LoadInst *LI = dyn_cast<LoadInst>(I);
+    Value *newValue = CallInst::Create(RandFunc, "", I);
+    LI->replaceAllUsesWith(newValue);
+    LI->eraseFromParent();
+    return (Instruction*) newValue;
+}
+
+/* NoStoreFault ******************************************************************/
+
+cl::opt<int>
+NoStoreFault::prob("fault-prob-no-store",
+        cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+char noStoreName[] = "no-store";
+char *NoStoreFault::getName(){
+    return noStoreName;
+}
+
+bool NoStoreFault::isApplicable(Instruction *I){
+    return dyn_cast<StoreInst>(I);
+}
+
+Instruction *NoStoreFault::apply(Instruction *I){
+    StoreInst *SI = dyn_cast<StoreInst>(I);
+    /* remove store instruction */
+    SI->eraseFromParent();
+    return NULL;
+}
+
 
