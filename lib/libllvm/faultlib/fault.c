@@ -11,7 +11,7 @@
 volatile int magic_ensure_linkage = ((int) &rand);
 
 int faultinjection_enabled = 0;
-int fault_count_swap = 0, fault_count_no_load = 0, fault_count_rnd_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0, fault_count_corrupt_integer = 0, fault_count_corrupt_index = 0, fault_count_corrupt_operator = 0;
+int fault_count_no_load = 0, fault_count_rnd_load = 0, fault_count_no_store = 0, fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0, fault_count_corrupt_integer = 0, fault_count_corrupt_index = 0, fault_count_corrupt_operator = 0;
 
 int lh=4, rh=3, condition=~0;
 
@@ -99,9 +99,16 @@ void fault_switch(int enable){
     printf("faultinjection_enabled: %d\n", faultinjection_enabled);
 }
 
+void fault_print_stat(char *fault_name, int fault_count){
+    printf("%15s: %d\n", fault_name, fault_count);
+}
+
 void fault_print_stats(){
     printf("faultinjector stats:\n");
-    printf("   swap:     %d\n", fault_count_swap);
+}
+volatile int magic_ensure_linkage2 = (int) &fault_print_stat;
+
+void fault_print_stats_old(){
     printf("   no load:  %d\n", fault_count_no_load);
     printf("   rnd load:  %d\n", fault_count_rnd_load);
     printf("   no store: %d\n", fault_count_no_store);
@@ -125,6 +132,7 @@ int do_fault_injector_request_impl(message *m){
         }
     }else if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_PRINT_STATS){
         fault_print_stats();
+        fault_print_stats_old();
     }else{
         return EGENERIC;
     }

@@ -1,28 +1,33 @@
+#include "llvm/Pass.h"
+#include <llvm/Instructions.h>
+#include "llvm/Support/CommandLine.h"
+#include <llvm/Module.h>
+
 using namespace llvm;
-
-namespace llvm {
-
-class FaultInjector : public ModulePass {
-
-  public:
-      static char ID;
-
-      FaultInjector();
-
-      virtual bool runOnModule(Module &M);
-
-};
 
 class FaultType{
 public:
-    int i;
+    virtual bool isApplicable(Instruction *I) = 0;
+    virtual void apply(Instruction *I) = 0;
+    virtual char *getName() = 0;
+    virtual int getProbability() = 0;
+
+    void addToModule(Module &M);
+
+    GlobalVariable *fault_count;
 };
+
+#define FAULT_MEMBERS \
+    bool isApplicable(Instruction *I); \
+    void apply(Instruction *I); \
+    static cl::opt<int> prob;\
+    char *getName();\
+    int getProbability(){\
+        return prob;\
+    }
 
 class SwapFault : public FaultType {
-public:
-    int j;
-    void printTest();
+    public: FAULT_MEMBERS
 };
 
-}
 

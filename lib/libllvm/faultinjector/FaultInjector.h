@@ -1,3 +1,5 @@
+#include "Fault.h"
+
 using namespace llvm;
 
 namespace llvm {

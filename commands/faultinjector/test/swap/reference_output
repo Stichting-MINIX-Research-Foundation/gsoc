@@ -1,5 +1,5 @@
 fault_test: -1
-   swap:     2
+           swap: 2
    no load:  0
    rnd load:  0
    no store: 0

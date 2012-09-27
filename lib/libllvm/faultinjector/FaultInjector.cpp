@@ -37,11 +37,6 @@ prob_global("fault-prob-global",
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
 static cl::opt<int>
-prob_swap("fault-prob-swap",
-        cl::desc("Fault Injector: binary operand swap fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
 prob_no_load("fault-prob-no-load",
         cl::desc("Fault Injector: load instruction loading '0' fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
@@ -120,7 +115,6 @@ namespace llvm{
             exit(1);
         }
 
-        GlobalVariable* fault_count_swap_var = M.getNamedGlobal("fault_count_swap");
         GlobalVariable* fault_count_no_load_var = M.getNamedGlobal("fault_count_no_load");
         GlobalVariable* fault_count_rnd_load_var = M.getNamedGlobal("fault_count_rnd_load");
         GlobalVariable* fault_count_no_store_var = M.getNamedGlobal("fault_count_no_store");
@@ -130,7 +124,7 @@ namespace llvm{
         GlobalVariable* fault_count_corrupt_integer_var = M.getNamedGlobal("fault_count_corrupt_integer");
         GlobalVariable* fault_count_corrupt_index_var = M.getNamedGlobal("fault_count_corrupt_index");
         GlobalVariable* fault_count_corrupt_operator_var = M.getNamedGlobal("fault_count_corrupt_operator");
-        if(!fault_count_swap_var || !fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var || !fault_count_corrupt_index_var || !fault_count_corrupt_operator_var) {
+        if(!fault_count_no_load_var || !fault_count_rnd_load_var || !fault_count_no_store_var || !fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var || !fault_count_corrupt_index_var || !fault_count_corrupt_operator_var) {
             errs() << "Error: no fault counter variable found";
             exit(1);
         }
@@ -143,6 +137,10 @@ namespace llvm{
                 /*Name=*/"GV_int_0");
         GV_int_0->setAlignment(4);
         GV_int_0->setInitializer(Constant0);
+
+
+        SwapFault FS;
+        FS.addToModule(M);
 
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
             Function *F = it;
@@ -225,7 +223,7 @@ namespace llvm{
                 BasicBlock *BB = Clones[i];
                 /* For each basic block, loop through all instructions */
                 for (BasicBlock::iterator II = BB->begin(), nextII; II != BB->end();II=nextII){
-                    Value *val = &(*II);
+                    Instruction *val = &(*II);
                     errs() << "> ";
                     val->print(errs());
                     errs() << "\n";
@@ -239,15 +237,10 @@ namespace llvm{
                     }
             
                     do{        
-                        if(BinaryOperator *Op = dyn_cast<BinaryOperator>(val)){
-                            if((rand() % 1000) < prob_swap){
-                                /* switch operands of binary instructions */
-                                /* todo: if(op1.type == op2.type */
-                                Value *tmp = Op->getOperand(0);
-                                Op->setOperand(0, Op->getOperand(1));
-                                Op->setOperand(1, tmp);
-
-                                count_incr(fault_count_swap_var, Op, M);
+                        if(FS.isApplicable(val)){
+                            if((rand() % 1000) < FS.getProbability()){
+                                FS.apply(val);
+                                count_incr(FS.fault_count, val, M);
                                 continue;
                             }
                         }
@@ -272,7 +265,7 @@ namespace llvm{
                                 if(doReplace){
                                     LI->replaceAllUsesWith(newValue);
                                     LI->eraseFromParent();
-                                    val = newValue;
+                                    val = (Instruction*) newValue;
                                     continue;
                                 }
                             }
