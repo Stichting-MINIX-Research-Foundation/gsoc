@@ -6,6 +6,8 @@
 using namespace llvm;
 
 class FaultType{
+private:
+    GlobalVariable *fault_count;
 public:
     virtual bool isApplicable(Instruction *I) = 0;
     virtual Instruction *apply(Instruction *I) = 0;
@@ -13,15 +15,17 @@ public:
     virtual int getProbability() = 0;
 
     void addToModule(Module &M);
+    GlobalVariable *getFaultCount(){
+        return fault_count;
+    }
 
-    GlobalVariable *fault_count;
 };
 
 #define FAULT_MEMBERS \
     bool isApplicable(Instruction *I); \
     Instruction *apply(Instruction *I); \
-    static cl::opt<int> prob;\
     const char *getName();\
+    static cl::opt<int> prob;\
     int getProbability(){\
         return prob;\
     }

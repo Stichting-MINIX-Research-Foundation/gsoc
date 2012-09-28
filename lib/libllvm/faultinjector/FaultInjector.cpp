@@ -230,7 +230,7 @@ namespace llvm{
                         if(FS.isApplicable(val)){
                             if((rand() % 1000) < FS.getProbability()){
                                 val = FS.apply(val);
-                                count_incr(FS.fault_count, nextII, M);
+                                count_incr(FS.getFaultCount(), nextII, M);
                                 continue;
                             }
                         }
@@ -238,7 +238,7 @@ namespace llvm{
                         if(NL.isApplicable(val)){
                             if((rand() % 1000) < NL.getProbability()){
                                 val = NL.apply(val);
-                                count_incr(NL.fault_count, nextII, M);
+                                count_incr(NL.getFaultCount(), nextII, M);
                                 continue;
                             }
                         }
@@ -246,7 +246,7 @@ namespace llvm{
                         if(RL.isApplicable(val)){
                             if((rand() % 1000) < RL.getProbability()){
                                 val = RL.apply(val);
-                                count_incr(RL.fault_count, nextII, M);
+                                count_incr(RL.getFaultCount(), nextII, M);
                                 continue;
                             }
                         } 
@@ -254,7 +254,7 @@ namespace llvm{
                         if(NS.isApplicable(val)){
                             if((rand() % 1000) < NS.getProbability()){
                                 val = NS.apply(val);
-                                count_incr(NS.fault_count, nextII, M);
+                                count_incr(NS.getFaultCount(), nextII, M);
                                 continue;
                             }
                         } 
