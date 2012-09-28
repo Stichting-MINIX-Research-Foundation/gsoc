@@ -15,10 +15,10 @@ public:
     virtual int getProbability() = 0;
 
     void addToModule(Module &M);
+
     GlobalVariable *getFaultCount(){
         return fault_count;
     }
-
 };
 
 #define FAULT_MEMBERS \
@@ -43,6 +43,30 @@ class RndLoadFault : public FaultType {
 };
 
 class NoStoreFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class FlipBranchFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class FlipBoolFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class CorruptPointerFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class CorruptIndexFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class CorruptIntegerFault : public FaultType {
+    public: FAULT_MEMBERS
+};
+
+class CorruptOperatorFault : public FaultType {
     public: FAULT_MEMBERS
 };
 

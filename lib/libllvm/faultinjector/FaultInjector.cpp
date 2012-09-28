@@ -36,37 +36,6 @@ prob_global("fault-prob-global",
         cl::desc("Fault Injector: global dynamic fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
-static cl::opt<int>
-prob_flip_bool("fault-prob-flip-bool",
-        cl::desc("Fault Injector: flip boolean value fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
-prob_flip_branch("fault-prob-flip-branch",
-        cl::desc("Fault Injector: flip branch fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
-prob_corrupt_pointer("fault-prob-corrupt-pointer",
-        cl::desc("Fault Injector: corrupt pointer fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
-prob_corrupt_integer("fault-prob-corrupt-integer",
-        cl::desc("Fault Injector: corrupt integer fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
-prob_corrupt_index("fault-prob-corrupt-index",
-        cl::desc("Fault Injector: corrupt index fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-static cl::opt<int>
-prob_corrupt_operator("fault-prob-corrupt-operator",
-        cl::desc("Fault Injector: corrupt binary operator fault probability (0 - 1000) "),
-        cl::init(0), cl::NotHidden, cl::ValueRequired);
-
-
 namespace llvm{
 
     FaultInjector::FaultInjector() : ModulePass(ID) {}
@@ -88,9 +57,7 @@ namespace llvm{
         Module::FunctionListType &functionList = M.getFunctionList();
         SmallVectorImpl<BasicBlock*> Clones(0);
 
-        ConstantInt* True = ConstantInt::get(M.getContext(), APInt(1, StringRef("-1"), 10));
         ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
-        ConstantInt* Constant1 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1"), 10));
         ConstantInt* Constant1000 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1000"), 10));
         ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, prob_global, 10));
 
@@ -100,16 +67,6 @@ namespace llvm{
             exit(1);
         }
 
-        GlobalVariable* fault_count_flip_bool_var = M.getNamedGlobal("fault_count_flip_bool");
-        GlobalVariable* fault_count_flip_branch_var = M.getNamedGlobal("fault_count_flip_branch");
-        GlobalVariable* fault_count_corrupt_pointer_var = M.getNamedGlobal("fault_count_corrupt_pointer");
-        GlobalVariable* fault_count_corrupt_integer_var = M.getNamedGlobal("fault_count_corrupt_integer");
-        GlobalVariable* fault_count_corrupt_index_var = M.getNamedGlobal("fault_count_corrupt_index");
-        GlobalVariable* fault_count_corrupt_operator_var = M.getNamedGlobal("fault_count_corrupt_operator");
-        if(!fault_count_flip_bool_var || !fault_count_flip_branch_var || !fault_count_corrupt_pointer_var || !fault_count_corrupt_integer_var || !fault_count_corrupt_index_var || !fault_count_corrupt_operator_var) {
-            errs() << "Error: no fault counter variable found";
-            exit(1);
-        }
 
         GlobalVariable* GV_int_0 = new GlobalVariable(/*Module=*/M, 
                 /*Type=*/IntegerType::get(M.getContext(), 32),
@@ -132,6 +89,24 @@ namespace llvm{
 
         NoStoreFault NS;
         NS.addToModule(M);
+
+        FlipBranchFault FBR;
+        FBR.addToModule(M);
+
+        FlipBoolFault FBO;
+        FBO.addToModule(M);
+
+        CorruptPointerFault CP;
+        CP.addToModule(M);
+
+        CorruptIndexFault CIX;
+        CIX.addToModule(M);
+
+        CorruptIntegerFault CIN;
+        CIN.addToModule(M);
+
+        CorruptOperatorFault CO;
+        CO.addToModule(M);
 
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
             Function *F = it;
@@ -259,115 +234,54 @@ namespace llvm{
                             }
                         } 
 
-                        if(val->getType()->isIntegerTy(1)){
-                            
-                            if((rand() % 1000) < prob_flip_branch){
-                                /* boolean value is used as branching condition */
-                                BranchInst *BI;
-                                bool isBranchInst = false;
-                                for(Value::use_iterator U = val->use_begin(), UE = val->use_end(); U != UE; U++){
-                                    if ((BI = dyn_cast<BranchInst>(*U))) {
-                                        isBranchInst = true;
-                                        break;
-                                    }
-                                }
-                                if(isBranchInst){
-                                    errs() << "Negated branch instruction\n";
-                                    count_incr(fault_count_flip_branch_var, nextII, M);
-                                    BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, val, True, "", nextII);
-                                    BI->setOperand(0, Negation);
-                                    continue;
-                                }
-                            }
-
-                            if((rand() % 1000) < prob_flip_bool){
-                                /* boolean value, not necessarily used as branching condition */
-                                count_incr(fault_count_flip_bool_var, nextII, M);
-
-                                BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, val, True, "", nextII);
-                                II->replaceAllUsesWith(Negation);
-                                Negation->setOperand(0, II); /* restore the use in the negation instruction */
-                                errs() << "< inserted (after next): ";
-                                Negation->print(errs());
-                                errs() << "\n";
-
+                        if(FBR.isApplicable(val)){
+                            if((rand() % 1000) < FBR.getProbability()){
+                                val = FBR.apply(val);
+                                count_incr(FBR.getFaultCount(), nextII, M);
                                 continue;
                             }
-                        
-                        }
+                        } 
 
-                        if(val->getType()->isPointerTy()){
-                            if((rand() % 1000) < prob_corrupt_pointer){
-                                CallInst* PtrRandFuncCall = CallInst::Create(RandFunc, "", nextII);
-                                CastInst* rand64 = new SExtInst(PtrRandFuncCall, IntegerType::get(M.getContext(), 64), "", nextII);
-                                CastInst* rnd_ptr = new IntToPtrInst(rand64, val->getType(), "", nextII);    
-                                II->replaceAllUsesWith(rnd_ptr);
-                                count_incr(fault_count_corrupt_pointer_var, nextII, M);
+                        if(FBO.isApplicable(val)){
+                            if((rand() % 1000) < FBO.getProbability()){
+                                val = FBO.apply(val);
+                                count_incr(FBO.getFaultCount(), nextII, M);
                                 continue;
                             }
-                        }
+                        } 
 
-                        if(val->getType()->isIntegerTy(32)){
-                            
-                            bool doCorrupt = false;
-
-                            if((rand() % 1000) < prob_corrupt_index){
-                                GetElementPtrInst *GEP;
-                                for(Value::use_iterator U = val->use_begin(), UE = val->use_end(); U != UE; U++){
-                                    if ((GEP = dyn_cast<GetElementPtrInst>(*U))) {
-                                        doCorrupt = true;
-                                        count_incr(fault_count_corrupt_index_var, nextII, M);
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if(!doCorrupt && (rand() % 1000) < prob_corrupt_integer){
-                                doCorrupt = true;
-                                count_incr(fault_count_corrupt_integer_var, nextII, M);
-                            }
-
-                            if(doCorrupt){
-                                Instruction::BinaryOps opcode;
-                                if(rand() % 2){
-                                    opcode=Instruction::Add;
-                                }else{
-                                    opcode=Instruction::Sub;
-                                }
-                                BinaryOperator* Change = BinaryOperator::Create(opcode, val, Constant1, "", nextII);
-                                II->replaceAllUsesWith(Change);
-                                Change->setOperand(0, II); /* restore the use in the change instruction */
+                        if(CP.isApplicable(val)){
+                            if((rand() % 1000) < CP.getProbability()){
+                                val = CP.apply(val);
+                                count_incr(CP.getFaultCount(), nextII, M);
                                 continue;
                             }
-                        }
+                        } 
 
-                        if(BinaryOperator *BO = dyn_cast<BinaryOperator>(val)){
-                            if((rand() % 1000) < prob_corrupt_operator){
-                                
-                                Instruction::BinaryOps newOpCode;
-                                
-                                if(BO->getType()->isIntOrIntVectorTy()){
-                                    Instruction::BinaryOps IntOps[] = {BinaryOperator::Add, BinaryOperator::Sub, BinaryOperator::Mul, BinaryOperator::UDiv, BinaryOperator::SDiv, BinaryOperator::URem, BinaryOperator::SRem, BinaryOperator::Shl, BinaryOperator::LShr, BinaryOperator::AShr, BinaryOperator::And, BinaryOperator::Or, BinaryOperator::Xor};
-                                    newOpCode = IntOps[rand() % (sizeof(IntOps)/sizeof(IntOps[0]))];
-                                }else{
-                                    assert(BO->getType()->isFPOrFPVectorTy());
-                                    // FRem is not included, because it requires fmod from libm to be linked in.
-                                    Instruction::BinaryOps FpOps[] = {BinaryOperator::FAdd, BinaryOperator::FSub, BinaryOperator::FMul, BinaryOperator::FDiv};
-                                    newOpCode = FpOps[rand() % (sizeof(FpOps)/sizeof(FpOps[0]))];
-                                }
-
-                                BinaryOperator* Replacement = BinaryOperator::Create(newOpCode, BO->getOperand(0), BO->getOperand(1), "", nextII);
-                                BO->replaceAllUsesWith(Replacement);
-                                BO->eraseFromParent();
-                                
-                                count_incr(fault_count_corrupt_operator_var, nextII, M);
-                                val=NULL;
-                                errs() << "< replaced with: ";
-                                Replacement->print(errs());
-                                errs() << "\n";
+                        if(CIX.isApplicable(val)){
+                            if((rand() % 1000) < CIX.getProbability()){
+                                val = CIX.apply(val);
+                                count_incr(CIX.getFaultCount(), nextII, M);
                                 continue;
                             }
-                        }
+                        } 
+
+                        if(CIN.isApplicable(val)){
+                            if((rand() % 1000) < CIN.getProbability()){
+                                val = CIN.apply(val);
+                                count_incr(CIN.getFaultCount(), nextII, M);
+                                continue;
+                            }
+                        } 
+
+                        if(CO.isApplicable(val)){
+                            if((rand() % 1000) < CO.getProbability()){
+                                val = CO.apply(val);
+                                count_incr(CO.getFaultCount(), nextII, M);
+                                continue;
+                            }
+                        } 
+
 
                     }
                     while(false);

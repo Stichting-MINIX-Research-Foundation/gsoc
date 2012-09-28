@@ -11,7 +11,6 @@
 volatile int magic_ensure_linkage = ((int) &rand);
 
 int faultinjection_enabled = 0;
-int fault_count_flip_bool = 0, fault_count_flip_branch = 0, fault_count_corrupt_pointer = 0, fault_count_corrupt_integer = 0, fault_count_corrupt_index = 0, fault_count_corrupt_operator = 0;
 
 int lh=4, rh=3, condition=~0;
 
@@ -101,22 +100,13 @@ void fault_switch(int enable){
 }
 
 void fault_print_stat(char *fault_name, int fault_count){
-    printf("%15s: %d\n", fault_name, fault_count);
+    printf("%20s: %d\n", fault_name, fault_count);
 }
 
 void fault_print_stats(){
     printf("faultinjector stats:\n");
 }
 volatile int magic_ensure_linkage2 = (int) &fault_print_stat;
-
-void fault_print_stats_old(){
-    printf("   flip bool: %d\n", fault_count_flip_bool);
-    printf("   flip branch: %d\n", fault_count_flip_branch);
-    printf("   corrupt pointer: %d\n", fault_count_corrupt_pointer);
-    printf("   corrupt integer: %d\n", fault_count_corrupt_integer);
-    printf("   corrupt index: %d\n", fault_count_corrupt_index);
-    printf("   corrupt operator: %d\n", fault_count_corrupt_operator);
-}
 
 int do_fault_injector_request_impl(message *m){
     int i;
@@ -130,7 +120,6 @@ int do_fault_injector_request_impl(message *m){
         }
     }else if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_PRINT_STATS){
         fault_print_stats();
-        fault_print_stats_old();
     }else{
         return EGENERIC;
     }

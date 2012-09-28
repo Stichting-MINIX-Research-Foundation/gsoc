@@ -149,4 +149,215 @@ Instruction *NoStoreFault::apply(Instruction *I){
     return NULL;
 }
 
+/* FlipBranchFault ******************************************************************/
+
+cl::opt<int>
+FlipBranchFault::prob("fault-prob-flip-branch",
+        cl::desc("Fault Injector: flip branch fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+const char *FlipBranchFault::getName(){
+    return "flip-branch";
+}
+
+bool FlipBranchFault::isApplicable(Instruction *I){
+    if(I->getType()->isIntegerTy(1)){
+        for(Value::use_iterator U = I->use_begin(), UE = I->use_end(); U != UE; U++){
+            if (dyn_cast<BranchInst>(*U)) {
+                return true;
+            }
+        }
+    }
+    return false;
+
+}
+
+Instruction *FlipBranchFault::apply(Instruction *I){
+                            
+    /* boolean value is used as branching condition */
+    BranchInst *BI;
+    bool isBranchInst = false;
+    for(Value::use_iterator U = I->use_begin(), UE = I->use_end(); U != UE; U++){
+        if ((BI = dyn_cast<BranchInst>(*U))) {
+            isBranchInst = true;
+            break;
+        }
+    }
+    if(isBranchInst){
+        //errs() << "Negated branch instruction\n";
+        ConstantInt* True = ConstantInt::get(I->getParent()->getParent()->getParent()->getContext(), APInt(1, StringRef("-1"), 10));
+        BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, I, True, "", BI);
+        BI->setOperand(0, Negation);
+    }
+    return BI;
+}
+
+/* FlipBoolFault ******************************************************************/
+
+cl::opt<int>
+FlipBoolFault::prob("fault-prob-flip-bool",
+        cl::desc("Fault Injector: flip boolean value fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+const char *FlipBoolFault::getName(){
+    return "flip-bool";
+}
+
+bool FlipBoolFault::isApplicable(Instruction *I){
+    return I->getType()->isIntegerTy(1);
+}
+
+Instruction *FlipBoolFault::apply(Instruction *I){
+    /* boolean value, not necessarily used as branching condition */
+
+    ConstantInt* True = ConstantInt::get(I->getParent()->getParent()->getParent()->getContext(), APInt(1, StringRef("-1"), 10));
+    BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, I, True, "", I->getNextNode());
+    I->replaceAllUsesWith(Negation);
+    Negation->setOperand(0, I); /* restore the use in the negation instruction */
+    //errs() << "< inserted (after next): ";
+    //Negation->print(errs());
+    //errs() << "\n";
+    return Negation;
+}
+
+/* CorruptPointerFault ******************************************************************/
+
+cl::opt<int>
+CorruptPointerFault::prob("fault-prob-corrupt-pointer",
+        cl::desc("Fault Injector: corrupt pointer fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+const char *CorruptPointerFault::getName(){
+    return "corrupt-pointer";
+}
+
+bool CorruptPointerFault::isApplicable(Instruction *I){
+    return I->getType()->isPointerTy();
+}
+
+Instruction *CorruptPointerFault::apply(Instruction *I){
+    Instruction *next = I->getNextNode();
+    Module *M = I->getParent()->getParent()->getParent();
+    Function *RandFunc = M->getFunction("rand");
+    CallInst* PtrRandFuncCall = CallInst::Create(RandFunc, "", next);
+    CastInst* rand64 = new SExtInst(PtrRandFuncCall, IntegerType::get(M->getContext(), 64), "", next);
+    CastInst* rnd_ptr = new IntToPtrInst(rand64, I->getType(), "", next);    
+    I->replaceAllUsesWith(rnd_ptr);
+    return rnd_ptr;
+}
+
+/* CorruptIndexFault ******************************************************************/
+
+cl::opt<int>
+CorruptIndexFault::prob("fault-prob-corrupt-index",
+        cl::desc("Fault Injector: corrupt index fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+const char *CorruptIndexFault::getName(){
+    return "corrupt-index";
+}
+
+bool CorruptIndexFault::isApplicable(Instruction *I){
+    if(I->getType()->isIntegerTy(32)){
+        for(Value::use_iterator U = I->use_begin(), UE = I->use_end(); U != UE; U++){
+            if (dyn_cast<GetElementPtrInst>(*U)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+Instruction *CorruptIndexFault::apply(Instruction *I){
+    if(I->getType()->isIntegerTy(32)){
+        for(Value::use_iterator U = I->use_begin(), UE = I->use_end(); U != UE; U++){
+            if (dyn_cast<GetElementPtrInst>(*U)) {
+                Instruction::BinaryOps opcode;
+                if(rand() % 2){
+                    opcode=Instruction::Add;
+                }else{
+                    opcode=Instruction::Sub;
+                }
+                Module *M = I->getParent()->getParent()->getParent();
+                ConstantInt* Constant1 = ConstantInt::get(M->getContext(), APInt(32, StringRef("1"), 10));
+                BinaryOperator* Change = BinaryOperator::Create(opcode, I, Constant1, "", I->getNextNode());
+                I->replaceAllUsesWith(Change);
+                Change->setOperand(0, I); /* restore the use in the change instruction */
+                return Change;
+            }
+        }
+    }
+    assert(0 && "should not be reached");
+    return NULL;
+}
+
+/* CorruptIntegerFault ******************************************************************/
+
+cl::opt<int>
+CorruptIntegerFault::prob("fault-prob-corrupt-integer",
+        cl::desc("Fault Injector: corrupt integer fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+const char *CorruptIntegerFault::getName(){
+    return "corrupt-integer";
+}
+
+bool CorruptIntegerFault::isApplicable(Instruction *I){
+    return I->getType()->isIntegerTy(32);
+}
+
+Instruction *CorruptIntegerFault::apply(Instruction *I){
+    Instruction::BinaryOps opcode;
+    if(rand() % 2){
+        opcode=Instruction::Add;
+    }else{
+        opcode=Instruction::Sub;
+    }
+    Module *M = I->getParent()->getParent()->getParent();
+    ConstantInt* Constant1 = ConstantInt::get(M->getContext(), APInt(32, StringRef("1"), 10));
+    BinaryOperator* Change = BinaryOperator::Create(opcode, I, Constant1, "", I->getNextNode());
+    I->replaceAllUsesWith(Change);
+    Change->setOperand(0, I); /* restore the use in the change instruction */
+    return Change;
+}
+
+/* CorruptOperatorFault ******************************************************************/
+
+cl::opt<int>
+CorruptOperatorFault::prob("fault-prob-corrupt-operator",
+        cl::desc("Fault Injector: corrupt binary operator fault probability (0 - 1000) "),
+        cl::init(0), cl::NotHidden, cl::ValueRequired);
+
+const char *CorruptOperatorFault::getName(){
+    return "corrupt-operator";
+}
+
+bool CorruptOperatorFault::isApplicable(Instruction *I){
+    return dyn_cast<BinaryOperator>(I);
+}
+
+Instruction *CorruptOperatorFault::apply(Instruction *I){
+    BinaryOperator *BO = dyn_cast<BinaryOperator>(I);
+
+    Instruction::BinaryOps newOpCode;
+
+    if(BO->getType()->isIntOrIntVectorTy()){
+        Instruction::BinaryOps IntOps[] = {BinaryOperator::Add, BinaryOperator::Sub, BinaryOperator::Mul, BinaryOperator::UDiv, BinaryOperator::SDiv, BinaryOperator::URem, BinaryOperator::SRem, BinaryOperator::Shl, BinaryOperator::LShr, BinaryOperator::AShr, BinaryOperator::And, BinaryOperator::Or, BinaryOperator::Xor};
+        newOpCode = IntOps[rand() % (sizeof(IntOps)/sizeof(IntOps[0]))];
+    }else{
+        assert(BO->getType()->isFPOrFPVectorTy());
+        // FRem is not included, because it requires fmod from libm to be linked in.
+        Instruction::BinaryOps FpOps[] = {BinaryOperator::FAdd, BinaryOperator::FSub, BinaryOperator::FMul, BinaryOperator::FDiv};
+        newOpCode = FpOps[rand() % (sizeof(FpOps)/sizeof(FpOps[0]))];
+    }
+
+    BinaryOperator* Replacement = BinaryOperator::Create(newOpCode, BO->getOperand(0), BO->getOperand(1), "", I->getNextNode());
+    BO->replaceAllUsesWith(Replacement);
+    BO->eraseFromParent();
+
+    //errs() << "< replaced with: ";
+    //Replacement->print(errs());
+    //errs() << "\n";
+    return NULL;
+}
 
