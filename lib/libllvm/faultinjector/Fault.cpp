@@ -59,9 +59,8 @@ SwapFault::prob("fault-prob-swap",
         cl::desc("Fault Injector: binary operand swap fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
-char swapName[] = "swap";
-char *SwapFault::getName(){
-    return swapName;
+const char *SwapFault::getName(){
+    return "swap";
 }
 
 bool SwapFault::isApplicable(Instruction *I){
@@ -85,9 +84,8 @@ NoLoadFault::prob("fault-prob-no-load",
         cl::desc("Fault Injector: load instruction loading '0' fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
-char noLoadName[] = "no-load";
-char *NoLoadFault::getName(){
-    return noLoadName;
+const char *NoLoadFault::getName(){
+    return "no-load";
 }
 
 bool NoLoadFault::isApplicable(Instruction *I){
@@ -111,9 +109,8 @@ RndLoadFault::prob("fault-prob-rnd-load",
         cl::desc("Fault Injector: load instruction loading 'rnd()' fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
-char rndLoadName[] = "rnd-load";
-char *RndLoadFault::getName(){
-    return rndLoadName;
+const char *RndLoadFault::getName(){
+    return "rnd-load";
 }
 
 bool RndLoadFault::isApplicable(Instruction *I){
@@ -137,9 +134,8 @@ NoStoreFault::prob("fault-prob-no-store",
         cl::desc("Fault Injector: remove store instruction fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
-char noStoreName[] = "no-store";
-char *NoStoreFault::getName(){
-    return noStoreName;
+const char *NoStoreFault::getName(){
+    return "no-store";
 }
 
 bool NoStoreFault::isApplicable(Instruction *I){
