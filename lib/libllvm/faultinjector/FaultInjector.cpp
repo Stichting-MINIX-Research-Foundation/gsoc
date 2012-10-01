@@ -78,35 +78,42 @@ namespace llvm{
         GV_int_0->setInitializer(Constant0);
 
 
+        SmallVectorImpl<FaultType*> FaultTypes(0);
+
         SwapFault FS;
-        FS.addToModule(M);
+        FaultTypes.push_back(&FS);
 
         NoLoadFault NL;
-        NL.addToModule(M);
+        FaultTypes.push_back(&NL);
 
         RndLoadFault RL;
-        RL.addToModule(M);
+        FaultTypes.push_back(&RL);
 
         NoStoreFault NS;
-        NS.addToModule(M);
+        FaultTypes.push_back(&NS);
 
         FlipBranchFault FBR;
-        FBR.addToModule(M);
+        FaultTypes.push_back(&FBR);
 
         FlipBoolFault FBO;
-        FBO.addToModule(M);
+        FaultTypes.push_back(&FBO);
 
         CorruptPointerFault CP;
-        CP.addToModule(M);
+        FaultTypes.push_back(&CP);
 
         CorruptIndexFault CIX;
-        CIX.addToModule(M);
+        FaultTypes.push_back(&CIX);
 
         CorruptIntegerFault CIN;
-        CIN.addToModule(M);
+        FaultTypes.push_back(&CIN);
 
         CorruptOperatorFault CO;
-        CO.addToModule(M);
+        FaultTypes.push_back(&CO);
+
+        for(std::vector<FaultType *>::size_type i = 0; i <  FaultTypes.size(); i++){
+            FaultType *FT = FaultTypes[i];
+            FT->addToModule(M);
+        }
 
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
             Function *F = it;
@@ -200,91 +207,18 @@ namespace llvm{
                     if(rand() > (RAND_MAX / 2)){
                         srand(rand());
                     }
-            
-                    do{        
-                        if(FS.isApplicable(val)){
-                            if((rand() % 1000) < FS.getProbability()){
-                                val = FS.apply(val);
-                                count_incr(FS.getFaultCount(), nextII, M);
-                                continue;
+
+                    for(std::vector<FaultType *>::size_type i = 0; i <  FaultTypes.size(); i++){
+                        FaultType *FT = FaultTypes[i];
+                        if(FT->isApplicable(val)){
+                            if((rand() % 1000) < FT->getProbability()){
+                                val = FT->apply(val);
+                                count_incr(FT->getFaultCount(), nextII, M);
+                                break;
                             }
                         }
-
-                        if(NL.isApplicable(val)){
-                            if((rand() % 1000) < NL.getProbability()){
-                                val = NL.apply(val);
-                                count_incr(NL.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        }
-                        
-                        if(RL.isApplicable(val)){
-                            if((rand() % 1000) < RL.getProbability()){
-                                val = RL.apply(val);
-                                count_incr(RL.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
-                        if(NS.isApplicable(val)){
-                            if((rand() % 1000) < NS.getProbability()){
-                                val = NS.apply(val);
-                                count_incr(NS.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
-                        if(FBR.isApplicable(val)){
-                            if((rand() % 1000) < FBR.getProbability()){
-                                val = FBR.apply(val);
-                                count_incr(FBR.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
-                        if(FBO.isApplicable(val)){
-                            if((rand() % 1000) < FBO.getProbability()){
-                                val = FBO.apply(val);
-                                count_incr(FBO.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
-                        if(CP.isApplicable(val)){
-                            if((rand() % 1000) < CP.getProbability()){
-                                val = CP.apply(val);
-                                count_incr(CP.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
-                        if(CIX.isApplicable(val)){
-                            if((rand() % 1000) < CIX.getProbability()){
-                                val = CIX.apply(val);
-                                count_incr(CIX.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
-                        if(CIN.isApplicable(val)){
-                            if((rand() % 1000) < CIN.getProbability()){
-                                val = CIN.apply(val);
-                                count_incr(CIN.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
-                        if(CO.isApplicable(val)){
-                            if((rand() % 1000) < CO.getProbability()){
-                                val = CO.apply(val);
-                                count_incr(CO.getFaultCount(), nextII, M);
-                                continue;
-                            }
-                        } 
-
 
                     }
-                    while(false);
 
                     errs() << "< ";
                     if(!val){
