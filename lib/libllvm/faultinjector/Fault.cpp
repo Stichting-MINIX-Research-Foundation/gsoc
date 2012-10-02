@@ -67,14 +67,15 @@ bool SwapFault::isApplicable(Instruction *I){
     return dyn_cast<BinaryOperator>(I) != NULL;
 }
 
-Instruction *SwapFault::apply(Instruction *I){
+bool SwapFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     BinaryOperator *Op = dyn_cast<BinaryOperator>(I);
     /* switch operands of binary instructions */
     /* todo: if(op1.type == op2.type */
     Value *tmp = Op->getOperand(0);
     Op->setOperand(0, Op->getOperand(1));
     Op->setOperand(1, tmp);
-    return I;
+    replacements->push_back(I);
+    return true;
 }
 
 /* NoLoadFault ******************************************************************/
@@ -92,14 +93,15 @@ bool NoLoadFault::isApplicable(Instruction *I){
     return dyn_cast<LoadInst>(I) && dyn_cast<LoadInst>(I)->getOperand(0)->getType()->getContainedType(0)->isIntegerTy();
 }
 
-Instruction *NoLoadFault::apply(Instruction *I){
+bool NoLoadFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     LoadInst *LI = dyn_cast<LoadInst>(I);
     Value *newValue;
     /* load 0 instead of target value. */
     newValue = Constant::getNullValue(LI->getOperand(0)->getType()->getContainedType(0));
     LI->replaceAllUsesWith(newValue);
     LI->eraseFromParent();
-    return (Instruction*) newValue;
+    replacements->push_back(newValue);
+    return true;
 }
 
 /* RndLoadFault ******************************************************************/
@@ -117,14 +119,15 @@ bool RndLoadFault::isApplicable(Instruction *I){
     return dyn_cast<LoadInst>(I) && dyn_cast<LoadInst>(I)->getOperand(0)->getType()->getContainedType(0)->isIntegerTy() && I->getType()->isIntegerTy(32);
 }
 
-Instruction *RndLoadFault::apply(Instruction *I){
+bool RndLoadFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     Function *RandFunc = I->getParent()->getParent()->getParent()->getFunction("rand");
     assert(RandFunc);
     LoadInst *LI = dyn_cast<LoadInst>(I);
     Value *newValue = CallInst::Create(RandFunc, "", I);
     LI->replaceAllUsesWith(newValue);
     LI->eraseFromParent();
-    return (Instruction*) newValue;
+    replacements->push_back(newValue);
+    return true;
 }
 
 /* NoStoreFault ******************************************************************/
@@ -142,11 +145,11 @@ bool NoStoreFault::isApplicable(Instruction *I){
     return dyn_cast<StoreInst>(I);
 }
 
-Instruction *NoStoreFault::apply(Instruction *I){
+bool NoStoreFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     StoreInst *SI = dyn_cast<StoreInst>(I);
     /* remove store instruction */
     SI->eraseFromParent();
-    return NULL;
+    return true;
 }
 
 /* FlipBranchFault ******************************************************************/
@@ -172,25 +175,23 @@ bool FlipBranchFault::isApplicable(Instruction *I){
 
 }
 
-Instruction *FlipBranchFault::apply(Instruction *I){
+bool FlipBranchFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
                             
     /* boolean value is used as branching condition */
-    BranchInst *BI;
-    bool isBranchInst = false;
     for(Value::use_iterator U = I->use_begin(), UE = I->use_end(); U != UE; U++){
+        BranchInst *BI;
         if ((BI = dyn_cast<BranchInst>(*U))) {
-            isBranchInst = true;
-            break;
+            //errs() << "Negated branch instruction\n";
+            ConstantInt* True = ConstantInt::get(I->getParent()->getParent()->getParent()->getContext(), APInt(1, StringRef("-1"), 10));
+            BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, I, True, "", BI);
+            BI->setOperand(0, Negation);
+            replacements->push_back(Negation);
+            return false;
         }
     }
-    if(isBranchInst){
-        //errs() << "Negated branch instruction\n";
-        ConstantInt* True = ConstantInt::get(I->getParent()->getParent()->getParent()->getContext(), APInt(1, StringRef("-1"), 10));
-        BinaryOperator* Negation = BinaryOperator::Create(Instruction::Xor, I, True, "", BI);
-        BI->setOperand(0, Negation);
+    assert(0 && "should not be reached");
+    return false;
     }
-    return BI;
-}
 
 /* FlipBoolFault ******************************************************************/
 
@@ -207,7 +208,7 @@ bool FlipBoolFault::isApplicable(Instruction *I){
     return I->getType()->isIntegerTy(1);
 }
 
-Instruction *FlipBoolFault::apply(Instruction *I){
+bool FlipBoolFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     /* boolean value, not necessarily used as branching condition */
 
     ConstantInt* True = ConstantInt::get(I->getParent()->getParent()->getParent()->getContext(), APInt(1, StringRef("-1"), 10));
@@ -217,7 +218,8 @@ Instruction *FlipBoolFault::apply(Instruction *I){
     //errs() << "< inserted (after next): ";
     //Negation->print(errs());
     //errs() << "\n";
-    return Negation;
+    replacements->push_back(Negation);
+    return false;
 }
 
 /* CorruptPointerFault ******************************************************************/
@@ -235,7 +237,7 @@ bool CorruptPointerFault::isApplicable(Instruction *I){
     return I->getType()->isPointerTy();
 }
 
-Instruction *CorruptPointerFault::apply(Instruction *I){
+bool CorruptPointerFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     Instruction *next = I->getNextNode();
     Module *M = I->getParent()->getParent()->getParent();
     Function *RandFunc = M->getFunction("rand");
@@ -243,7 +245,12 @@ Instruction *CorruptPointerFault::apply(Instruction *I){
     CastInst* rand64 = new SExtInst(PtrRandFuncCall, IntegerType::get(M->getContext(), 64), "", next);
     CastInst* rnd_ptr = new IntToPtrInst(rand64, I->getType(), "", next);    
     I->replaceAllUsesWith(rnd_ptr);
-    return rnd_ptr;
+    I->eraseFromParent();
+
+    replacements->push_back(PtrRandFuncCall);
+    replacements->push_back(rand64);
+    replacements->push_back(rnd_ptr);
+    return true;
 }
 
 /* CorruptIndexFault ******************************************************************/
@@ -268,7 +275,7 @@ bool CorruptIndexFault::isApplicable(Instruction *I){
     return false;
 }
 
-Instruction *CorruptIndexFault::apply(Instruction *I){
+bool CorruptIndexFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     if(I->getType()->isIntegerTy(32)){
         for(Value::use_iterator U = I->use_begin(), UE = I->use_end(); U != UE; U++){
             if (dyn_cast<GetElementPtrInst>(*U)) {
@@ -283,12 +290,13 @@ Instruction *CorruptIndexFault::apply(Instruction *I){
                 BinaryOperator* Change = BinaryOperator::Create(opcode, I, Constant1, "", I->getNextNode());
                 I->replaceAllUsesWith(Change);
                 Change->setOperand(0, I); /* restore the use in the change instruction */
-                return Change;
+                replacements->push_back(Change);
+                return false;
             }
         }
     }
     assert(0 && "should not be reached");
-    return NULL;
+    return false;
 }
 
 /* CorruptIntegerFault ******************************************************************/
@@ -306,7 +314,7 @@ bool CorruptIntegerFault::isApplicable(Instruction *I){
     return I->getType()->isIntegerTy(32);
 }
 
-Instruction *CorruptIntegerFault::apply(Instruction *I){
+bool CorruptIntegerFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     Instruction::BinaryOps opcode;
     if(rand() % 2){
         opcode=Instruction::Add;
@@ -318,7 +326,8 @@ Instruction *CorruptIntegerFault::apply(Instruction *I){
     BinaryOperator* Change = BinaryOperator::Create(opcode, I, Constant1, "", I->getNextNode());
     I->replaceAllUsesWith(Change);
     Change->setOperand(0, I); /* restore the use in the change instruction */
-    return Change;
+    replacements->push_back(Change);
+    return false;
 }
 
 /* CorruptOperatorFault ******************************************************************/
@@ -336,7 +345,7 @@ bool CorruptOperatorFault::isApplicable(Instruction *I){
     return dyn_cast<BinaryOperator>(I);
 }
 
-Instruction *CorruptOperatorFault::apply(Instruction *I){
+bool CorruptOperatorFault::apply(Instruction *I, SmallVectorImpl<Value *> *replacements){
     BinaryOperator *BO = dyn_cast<BinaryOperator>(I);
 
     Instruction::BinaryOps newOpCode;
@@ -358,6 +367,7 @@ Instruction *CorruptOperatorFault::apply(Instruction *I){
     //errs() << "< replaced with: ";
     //Replacement->print(errs());
     //errs() << "\n";
-    return NULL;
+    replacements->push_back(Replacement);
+    return true;
 }
 

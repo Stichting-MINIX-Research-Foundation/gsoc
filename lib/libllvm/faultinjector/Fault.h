@@ -10,7 +10,7 @@ private:
     GlobalVariable *fault_count;
 public:
     virtual bool isApplicable(Instruction *I) = 0;
-    virtual Instruction *apply(Instruction *I) = 0;
+    virtual bool apply(Instruction *I, SmallVectorImpl<Value *> *replacements) = 0;
     virtual const char *getName() = 0;
     virtual int getProbability() = 0;
 
@@ -23,7 +23,7 @@ public:
 
 #define FAULT_MEMBERS \
     bool isApplicable(Instruction *I); \
-    Instruction *apply(Instruction *I); \
+    bool apply(Instruction *I, SmallVectorImpl<Value *> *replacements); \
     const char *getName();\
     static cl::opt<int> prob;\
     int getProbability(){\

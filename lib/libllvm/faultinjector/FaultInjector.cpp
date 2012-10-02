@@ -36,6 +36,11 @@ prob_global("fault-prob-global",
         cl::desc("Fault Injector: global dynamic fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
+static cl::opt<bool>
+do_debug("fault-debug",
+        cl::desc("Fault Injector: print debug information"),
+        cl::init(0), cl::NotHidden);
+
 namespace llvm{
 
     FaultInjector::FaultInjector() : ModulePass(ID) {}
@@ -177,9 +182,14 @@ namespace llvm{
                 /* For each basic block, loop through all instructions */
                 for (BasicBlock::iterator II = BB->begin(), nextII; II != BB->end();II=nextII){
                     Instruction *val = &(*II);
-                    errs() << "> ";
-                    val->print(errs());
-                    errs() << "\n";
+
+                    std::string tostr;
+                    if(do_debug){
+                        llvm::raw_string_ostream rsos(tostr);
+                        val->print(rsos);
+                        rsos.str();
+                    }
+                    
                     nextII=II;
                     nextII++;
 
@@ -187,25 +197,38 @@ namespace llvm{
                     if(rand() > (RAND_MAX / 2)){
                         srand(rand());
                     }
-
+                    
+                    SmallVectorImpl<Value *> replacements(0);
+                    FaultType *applied_fault_type = NULL;
+                    bool removed = false;
                     for(std::vector<FaultType *>::size_type i = 0; i <  FaultTypes.size(); i++){
                         FaultType *FT = FaultTypes[i];
                         if(FT->isApplicable(val)){
                             if((rand() % 1000) < FT->getProbability()){
-                                val = FT->apply(val);
+                                removed = FT->apply(val, &replacements);
                                 count_incr(FT->getFaultCount(), nextII, M);
+                                applied_fault_type = FT;
                                 break;
                             }
                         }
 
                     }
+                    if(do_debug){
+                        if(applied_fault_type){
+                            errs() << "   # applied fault " << applied_fault_type->getName() << "\n";
+                            if(removed){
+                                errs() << "-";
+                            }else{
+                                errs() << "*";
+                            }
+                            errs() << tostr << "\n";
+                            for(std::vector<Value *>::size_type i = 0; i <  replacements.size(); i++){
+                                errs() << "+" << *replacements[i] << "\n";
+                            }
 
-                    errs() << "< ";
-                    if(!val){
-                        errs() << "<removed>\n";
-                    }else{
-                        val->print(errs());
-                        errs() << "\n";
+                        }else{
+                            errs() << " " << tostr << "\n";
+                        }
                     }
 
                 }
