@@ -79,36 +79,16 @@ namespace llvm{
 
 
         SmallVectorImpl<FaultType*> FaultTypes(0);
-
-        SwapFault FS;
-        FaultTypes.push_back(&FS);
-
-        NoLoadFault NL;
-        FaultTypes.push_back(&NL);
-
-        RndLoadFault RL;
-        FaultTypes.push_back(&RL);
-
-        NoStoreFault NS;
-        FaultTypes.push_back(&NS);
-
-        FlipBranchFault FBR;
-        FaultTypes.push_back(&FBR);
-
-        FlipBoolFault FBO;
-        FaultTypes.push_back(&FBO);
-
-        CorruptPointerFault CP;
-        FaultTypes.push_back(&CP);
-
-        CorruptIndexFault CIX;
-        FaultTypes.push_back(&CIX);
-
-        CorruptIntegerFault CIN;
-        FaultTypes.push_back(&CIN);
-
-        CorruptOperatorFault CO;
-        FaultTypes.push_back(&CO);
+        FaultTypes.push_back(new SwapFault());
+        FaultTypes.push_back(new NoLoadFault());
+        FaultTypes.push_back(new RndLoadFault());
+        FaultTypes.push_back(new NoStoreFault());
+        FaultTypes.push_back(new FlipBranchFault());
+        FaultTypes.push_back(new FlipBoolFault());
+        FaultTypes.push_back(new CorruptPointerFault());
+        FaultTypes.push_back(new CorruptIndexFault());
+        FaultTypes.push_back(new CorruptIntegerFault());
+        FaultTypes.push_back(new CorruptOperatorFault());
 
         for(std::vector<FaultType *>::size_type i = 0; i <  FaultTypes.size(); i++){
             FaultType *FT = FaultTypes[i];
