@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "FaultInjector.h"
-#include "FaultUtil.h"
 #include <sys/time.h>
 
 using namespace llvm;
@@ -26,10 +25,9 @@ rand_seed("fault-rand-seed",
         cl::desc("Fault Injector: random seed value. when '0', current time is used. "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
-static cl::opt<std::string>
-FaultFunctions("fault-functions",
-        cl::desc("Fault Injector: specify comma separated list of functions to be instrumented (empty = all functions)"),
-        cl::init(""), cl::NotHidden, cl::ValueRequired);
+static cl::list<std::string>
+FunctionNames("fault-functions",
+        cl::desc("Fault Injector: specify comma separated list of functions to be instrumented (empty = all functions)"), cl::NotHidden, cl::CommaSeparated);
 
 static cl::opt<int>
 prob_global("fault-prob-global",
@@ -55,9 +53,6 @@ namespace llvm{
         }else{
             srand(rand_seed);
         }
-
-        std::vector<std::string> FunctionNames(0);
-        StringExplode(FaultFunctions, ",", &FunctionNames);
 
         Module::FunctionListType &functionList = M.getFunctionList();
         SmallVectorImpl<BasicBlock*> Clones(0);
@@ -206,8 +201,16 @@ namespace llvm{
                         if(FT->isApplicable(val)){
                             if((rand() % 1000) < FT->getProbability()){
                                 removed = FT->apply(val, &replacements);
-                                count_incr(FT->getFaultCount(), nextII, M);
                                 applied_fault_type = FT;
+
+                                /* Increase the stastistics counter for this fault */
+                                ConstantInt* Constant1 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1"), 10));
+                                LoadInst* count_var = new LoadInst(FT->getFaultCount(), "", false, nextII);
+                                count_var->setAlignment(4);
+                                BinaryOperator* count_incr = BinaryOperator::Create(Instruction::Add, count_var, Constant1, "", nextII);
+                                StoreInst *store_count_var = new StoreInst(count_incr, FT->getFaultCount(), false, nextII);
+                                store_count_var->setAlignment(4);
+
                                 break;
                             }
                         }
