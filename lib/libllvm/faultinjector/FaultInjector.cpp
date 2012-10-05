@@ -34,6 +34,11 @@ prob_global("fault-prob-global",
         cl::desc("Fault Injector: global dynamic fault probability (0 - 1000) "),
         cl::init(0), cl::NotHidden, cl::ValueRequired);
 
+cl::opt<int>
+prob_default("fault-prob-default",
+        cl::desc("Fault Injector: default probability for all faults that are not specified. This also overrides indvidual default values."),
+        cl::NotHidden);
+
 static cl::opt<bool>
 do_debug("fault-debug",
         cl::desc("Fault Injector: print debug information"),

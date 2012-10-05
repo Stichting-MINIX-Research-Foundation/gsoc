@@ -5,6 +5,9 @@
 
 using namespace llvm;
 
+
+extern cl::opt<int> prob_default;
+
 class FaultType{
 private:
     GlobalVariable *fault_count;
@@ -27,6 +30,9 @@ public:
     const char *getName();\
     static cl::opt<int> prob;\
     int getProbability(){\
+        if(prob.getNumOccurrences() == 0 && prob_default.getNumOccurrences() >> 0){\
+            return prob_default;\
+        }\
         return prob;\
     }
 
