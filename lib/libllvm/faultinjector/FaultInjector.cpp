@@ -60,7 +60,6 @@ namespace llvm{
         }
 
         Module::FunctionListType &functionList = M.getFunctionList();
-        SmallVectorImpl<BasicBlock*> Clones(0);
 
         ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
         ConstantInt* Constant1000 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1000"), 10));
@@ -127,6 +126,7 @@ namespace llvm{
                 }
             }
 
+            SmallVectorImpl<BasicBlock*> Clones(0);
             // clone code inspired by llvm::CloneFunctionInto() (llvm/lib/Transforms/Utils/CloneFunction.cpp)
             {
                 ValueToValueMapTy VMap;
@@ -215,7 +215,6 @@ namespace llvm{
                                 BinaryOperator* count_incr = BinaryOperator::Create(Instruction::Add, count_var, Constant1, "", nextII);
                                 StoreInst *store_count_var = new StoreInst(count_incr, FT->getFaultCount(), false, nextII);
                                 store_count_var->setAlignment(4);
-
                                 break;
                             }
                         }
@@ -240,6 +239,33 @@ namespace llvm{
                     }
 
                 }
+
+                bool foundNonPhi = false, printedOrig=false;
+                for (BasicBlock::iterator II = BB->begin(); II != BB->end();II++){
+                    // if non-PHInodes have been inserted before PHINodes, the PHINodes have to be moved to the beginning of the BB
+                    if(PHINode *PN = dyn_cast<PHINode>(II)){
+                        // This is a PHINode
+                        if(foundNonPhi){
+                            if(!printedOrig){
+                                printedOrig = true;
+                                errs() << "XXXX ORIG:\n";
+                                BB->dump();
+                            }
+                            // This is a PHINode, but we've already encountered a non-PHINode. Move PHINode to begin of BB
+                            PN->moveBefore(BB->begin());
+                            errs() << "XXXX MOD:\n";
+                            BB->dump();
+                            // restart the loop, to prevent messing up the iterator after moving it
+                            II = BB->begin();
+                            foundNonPhi = false;
+                            continue;
+                        }
+                    }else{
+                        // We found a non-PHINode. Any subsequent PHInode must be moved to begin of BB.
+                        foundNonPhi = true;
+                    }
+                }
+
             }
 
         }
