@@ -111,6 +111,18 @@ namespace llvm{
                 continue;
             }
 
+
+#if 0
+            /* module names */
+
+            Value *DIF = Backports::findDbgSubprogramDeclare(F);
+            if(DIF) {
+                DISubprogram Func(cast<MDNode>(DIF));
+                //isLibraryCompileUnit(Func.getCompileUnit());
+                errs() << Func.getCompileUnit().getDirectory() << "/" << Func.getCompileUnit().getFilename() << "\n";
+            }
+#endif
+
             BasicBlock *OldFirstBB = F->getBasicBlockList().begin();
             BasicBlock *ClonedOldFirstBB = NULL;
 
@@ -240,21 +252,14 @@ namespace llvm{
 
                 }
 
-                bool foundNonPhi = false, printedOrig=false;
+                bool foundNonPhi = false;
                 for (BasicBlock::iterator II = BB->begin(); II != BB->end();II++){
                     // if non-PHInodes have been inserted before PHINodes, the PHINodes have to be moved to the beginning of the BB
                     if(PHINode *PN = dyn_cast<PHINode>(II)){
                         // This is a PHINode
                         if(foundNonPhi){
-                            if(!printedOrig){
-                                printedOrig = true;
-                                errs() << "XXXX ORIG:\n";
-                                BB->dump();
-                            }
                             // This is a PHINode, but we've already encountered a non-PHINode. Move PHINode to begin of BB
                             PN->moveBefore(BB->begin());
-                            errs() << "XXXX MOD:\n";
-                            BB->dump();
                             // restart the loop, to prevent messing up the iterator after moving it
                             II = BB->begin();
                             foundNonPhi = false;
@@ -269,6 +274,9 @@ namespace llvm{
             }
 
         }
+
+        /* Fix llvm 2.9 bug: llc finds duplicate debug symbols */
+        Backports::StripDebugInfo(M);
 
         return true;
     }
