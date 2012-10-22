@@ -14,6 +14,10 @@ CXXFLAGS := ${CXXFLAGS} -I/usr/pkg/gcc44/include/c++/4.4.6 -I/usr/pkg/gcc44/incl
 
 CPPFLAGS := ${CXXFLAGS}
 
+#llvm regex support
+LLVM_LIB!=llvm-config --libdir
+LDADD:= ${LDADD} -L${LLVM_LIB} -lLLVMSupport
+
 LDFLAGS :=-D_POSIX_SOURCE -D_MINIX -D_GNU_SOURCE -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -O3 -fomit-frame-pointer -fno-exceptions -fno-rtti -fPIC -Woverloaded-virtual -Wcast-qual  -lcompat_minix -lminlib -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter -Wwrite-strings  -O3 -shared -lm
 
 .endif

@@ -14,6 +14,8 @@
 
 #include <algorithm>
 #include <vector>
+#include <set>
+#include <list>
 
 #include "FaultInjector.h"
 #include <sys/time.h>
@@ -29,6 +31,10 @@ static cl::list<std::string>
 FunctionNames("fault-functions",
         cl::desc("Fault Injector: specify comma separated list of functions to be instrumented (empty = all functions)"), cl::NotHidden, cl::CommaSeparated);
 
+static cl::list<std::string>
+ModuleNames("fault-modules",
+        cl::desc("Fault Injector: specify comma separated list of regular expressions to match modules (source file paths) to be instrumented (empty = all modules)"), cl::NotHidden, cl::CommaSeparated);
+
 static cl::opt<int>
 prob_global("fault-prob-global",
         cl::desc("Fault Injector: global dynamic fault probability (0 - 1000) "),
@@ -43,6 +49,29 @@ static cl::opt<bool>
 do_debug("fault-debug",
         cl::desc("Fault Injector: print debug information"),
         cl::init(0), cl::NotHidden);
+
+bool isLibraryCompileUnit(DICompileUnit DICU)
+{
+    static bool regexesInitialized = false;
+    static std::vector<Regex*> regexes;
+    if(!regexesInitialized) {
+        for (int i = 0; i < ModuleNames.size(); i++) {
+            StringRef sr(ModuleNames[i]);
+            Regex* regex = new Regex(sr);
+            std::string error;
+            assert(regex->isValid(error));
+            regexes.push_back(regex);
+        }    
+        regexesInitialized = true;
+    }    
+    if(regexes.size() == 0) return true;
+    for(unsigned i=0;i<regexes.size();i++) {
+        if(regexes[i]->match(DICU.getDirectory(), NULL)) {
+            return true;
+        }    
+    }
+    return false;
+}
 
 namespace llvm{
 
@@ -102,26 +131,24 @@ namespace llvm{
         for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
             Function *F = it;
 
-            if(FunctionNames.size() > 0 && std::find (FunctionNames.begin(), FunctionNames.end(), F->getName()) == FunctionNames.end()){
-                continue;
-            }
-
             if(F->begin() == F->end()){
                 // no basic blocks
                 continue;
             }
 
+            if(FunctionNames.size() > 0 && std::find (FunctionNames.begin(), FunctionNames.end(), F->getName()) == FunctionNames.end()){
+                continue;
+            }
 
-#if 0
-            /* module names */
 
             Value *DIF = Backports::findDbgSubprogramDeclare(F);
             if(DIF) {
                 DISubprogram Func(cast<MDNode>(DIF));
-                //isLibraryCompileUnit(Func.getCompileUnit());
+                if(!isLibraryCompileUnit(Func.getCompileUnit())){
+                    continue;   
+                }
                 errs() << Func.getCompileUnit().getDirectory() << "/" << Func.getCompileUnit().getFilename() << "\n";
             }
-#endif
 
             BasicBlock *OldFirstBB = F->getBasicBlockList().begin();
             BasicBlock *ClonedOldFirstBB = NULL;

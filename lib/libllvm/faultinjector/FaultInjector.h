@@ -1,5 +1,6 @@
 #include "Fault.h"
 #include "Backports.h"
+#include <llvm/Support/Regex.h>
 
 using namespace llvm;
 
