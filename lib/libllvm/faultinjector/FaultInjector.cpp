@@ -88,28 +88,11 @@ namespace llvm{
             srand(rand_seed);
         }
 
-        Module::FunctionListType &functionList = M.getFunctionList();
-
-        ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
-        ConstantInt* Constant1000 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1000"), 10));
-        ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, prob_global, 10));
-
         GlobalVariable* enabled_var = M.getNamedGlobal("faultinjection_enabled");
         if(!enabled_var) {
             errs() << "Error: no faultinjection_enabled variable found";
             exit(1);
         }
-
-
-        GlobalVariable* GV_int_0 = new GlobalVariable(/*Module=*/M, 
-                /*Type=*/IntegerType::get(M.getContext(), 32),
-                /*isConstant=*/false,
-                /*Linkage=*/GlobalValue::ExternalLinkage,
-                /*Initializer=*/0, // has initializer, specified below
-                /*Name=*/"GV_int_0");
-        GV_int_0->setAlignment(4);
-        GV_int_0->setInitializer(Constant0);
-
 
         SmallVectorImpl<FaultType*> FaultTypes(0);
         FaultTypes.push_back(new SwapFault());
@@ -124,11 +107,10 @@ namespace llvm{
         FaultTypes.push_back(new CorruptOperatorFault());
 
         for(std::vector<FaultType *>::size_type i = 0; i <  FaultTypes.size(); i++){
-            FaultType *FT = FaultTypes[i];
-            FT->addToModule(M);
+            FaultTypes[i]->addToModule(M);
         }
 
-        for (Module::iterator it = functionList.begin(); it != functionList.end(); ++it) {
+        for (Module::iterator it = M.getFunctionList().begin(); it != M.getFunctionList().end(); ++it) {
             Function *F = it;
 
             if(F->begin() == F->end()){
@@ -147,7 +129,6 @@ namespace llvm{
                 if(!isLibraryCompileUnit(Func.getCompileUnit())){
                     continue;   
                 }
-                errs() << Func.getCompileUnit().getDirectory() << "/" << Func.getCompileUnit().getFilename() << "\n";
             }
 
             BasicBlock *OldFirstBB = F->getBasicBlockList().begin();
@@ -203,8 +184,10 @@ namespace llvm{
             assert(RandFunc);
             CallInst* RandFuncCall = CallInst::Create(RandFunc, "", RndBB);
             /* take rand() % 1000 */
+            ConstantInt* Constant1000 = ConstantInt::get(M.getContext(), APInt(32, StringRef("1000"), 10));
             BinaryOperator *Remainder = BinaryOperator::Create(Instruction::SRem, RandFuncCall, Constant1000, "", RndBB); 
             /* remainder < tresshold? */
+            ConstantInt* ConstantFaultPct = ConstantInt::get(M.getContext(), APInt(32, prob_global, 10));
             ICmpInst* do_cloned = new ICmpInst(*RndBB, ICmpInst::ICMP_ULE, Remainder, ConstantFaultPct, "");
             /* goto first cloned block or first original block */
             BranchInst::Create(ClonedOldFirstBB, OldFirstBB, do_cloned, RndBB);
@@ -212,6 +195,7 @@ namespace llvm{
             /* branch to original blocks or cloned blocks, based on value of enabled_var */
             LoadInst* load_enabled_var = new LoadInst(enabled_var, "", false, NewFirstBB);
             load_enabled_var->setAlignment(4);
+            ConstantInt* Constant0 = ConstantInt::get(M.getContext(), APInt(32, StringRef("0"), 10));
             ICmpInst* do_rnd = new ICmpInst(*NewFirstBB, ICmpInst::ICMP_EQ, load_enabled_var, Constant0, "");
             BranchInst::Create(OldFirstBB, RndBB, do_rnd, NewFirstBB);
 
