@@ -122,6 +122,9 @@ namespace llvm{
                 continue;
             }
 
+            if(F->getName().equals("rand")){
+                continue;
+            }
 
             Value *DIF = Backports::findDbgSubprogramDeclare(F);
             if(DIF) {
