@@ -201,19 +201,18 @@ namespace llvm{
                     for (BasicBlock::iterator II = Header->begin(); II != Header->end(); ++II){
                         /* Try to find a user that will no longer be dominated after cloning. */
                         for (Value::use_iterator i = II->use_begin(), e = II->use_end(); i != e; ++i){
-                            bool doDemote = true;
+                            bool doDemote = false;
                             if(PHINode *P = dyn_cast<PHINode>(*i)){
-                                /* Only find PHINodes that are not in a direct successor to the current basic block */
-                                for (succ_iterator SI = succ_begin(Header), E = succ_end(Header); SI != E; ++SI) {
-                                    if(*SI == P->getParent()){
-                                        /* This PHINode is in a direct successor */
-                                        doDemote = false;
-                                        break;
+                                /* Only find PHINodes that use this value for an incoming block that is not a direct successor to the current basic block */
+                                for(int i=0; i < P->getNumIncomingValues(); i++){
+                                    if(P->getIncomingValue(i) == II && P->getIncomingBlock(i) != Header){
+                                        doDemote = true;
                                     }
                                 }
-                            }else if(dyn_cast<Instruction>(*i)->getParent() == Header){
+
+                            }else if(dyn_cast<Instruction>(*i)->getParent() != Header){
                                 /* This user is located in the same basic block */
-                                doDemote = false;
+                                doDemote = true;
                             }
                             assert(dyn_cast<Instruction>(II));
 
