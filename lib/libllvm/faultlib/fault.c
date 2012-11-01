@@ -33,7 +33,7 @@ void fault_test_no_store(){
 }
 
 void fault_test_flip_bool(){
-    volatile int local_condition = 1;
+    volatile int local_condition = 0;
     volatile int new_condition = local_condition && condition;
     if(new_condition){
         printf("fault_test: do\n");
@@ -41,13 +41,16 @@ void fault_test_flip_bool(){
     condition = ~condition;
 }
 
-void fault_test_corrupt_pointer(){
-    volatile int i;
-    volatile int *p = &i;
+void fault_test_corrupt_pointer(int i){
+    int *p = &i;
+    i++;
     if(i){
-        p++;
+        p=&p[i];
     }
-    printf("pointer: %p\n", p);
+    if((int)p&(int)i){
+        p=&p[i];
+    }
+    printf("pointer: %p, %d\n", p, i);
 }
 
 void fault_test_corrupt_integer(){
@@ -84,7 +87,7 @@ void fault_test(){
     fault_test_flip_bool();
     printf("fault_test_flip_bool_end\n");
     printf("fault_test_corrupt_pointer_start\n");
-    fault_test_corrupt_pointer();
+    fault_test_corrupt_pointer(3);
     printf("fault_test_corrupt_pointer_end\n");
     printf("fault_test_corrupt_integer_start\n");
     fault_test_corrupt_integer();

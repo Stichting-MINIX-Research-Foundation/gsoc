@@ -1,3 +1,5 @@
+fault_test: do
+fault_test: do
                 swap: 0
              no-load: 0
             rnd-load: 0
