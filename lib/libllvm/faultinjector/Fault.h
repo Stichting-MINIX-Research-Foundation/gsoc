@@ -30,7 +30,7 @@ public:
     const char *getName();\
     static cl::opt<int> prob;\
     int getProbability(){\
-        if(prob.getNumOccurrences() == 0 && prob_default.getNumOccurrences() >> 0){\
+        if(prob.getNumOccurrences() == 0 && prob_default.getNumOccurrences() > 0){\
             return prob_default;\
         }\
         return prob;\

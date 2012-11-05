@@ -198,7 +198,7 @@ namespace llvm{
             {
                 for(std::vector<BasicBlock>::size_type i = 0; i <  Headers.size(); i++){
                     BasicBlock *Header = Headers[i];
-                    for (BasicBlock::iterator II = Header->begin(); II != Header->end(); ++II){
+                    for (BasicBlock::iterator II = Header->getFirstNonPHI(); II != Header->end(); ++II){
                         /* Try to find a user that will no longer be dominated after cloning. */
                         for (Value::use_iterator i = II->use_begin(), e = II->use_end(); i != e; ++i){
                             bool doDemote = false;
@@ -211,10 +211,9 @@ namespace llvm{
                                 }
 
                             }else if(dyn_cast<Instruction>(*i)->getParent() != Header){
-                                /* This user is located in the same basic block */
+                                /* This user is located in another basic block */
                                 doDemote = true;
                             }
-                            assert(dyn_cast<Instruction>(II));
 
                             if(doDemote){
                                 /* Convert this instruction and its users to use alloca, load and store instructions */
