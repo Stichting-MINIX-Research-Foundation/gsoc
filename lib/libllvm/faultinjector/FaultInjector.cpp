@@ -53,6 +53,10 @@ do_debug("fault-debug",
         cl::desc("Fault Injector: print debug information"),
         cl::init(0), cl::NotHidden);
 
+#if LLVM_VERSION == 28
+#define RF_NoModuleLevelChanges false
+#endif
+
 bool isLibraryCompileUnit(DICompileUnit DICU)
 {
     static bool regexesInitialized = false;
@@ -373,5 +377,5 @@ namespace llvm{
 }
 
 char FaultInjector::ID = 0;
-static RegisterPass<FaultInjector> X("faultinjector", "Fault Injector Pass");
+static RegisterPass<FaultInjector> X("edfi", "Execution-Driven Fault Injector Pass");
 

@@ -1,12 +1,15 @@
 #define _SYSTEM 1
 #include <stdio.h>
 #include <stdlib.h>
-#include <minix/com.h>
-#include <minix/fault.h>
 #include <signal.h>
 #include <sys/errno.h>
 
+#ifdef _MINIX
+#include <minix/fault.h>
 #include "../../libc/stdlib/rand.c"
+#else
+#include <edfi.h>
+#endif
 
 volatile int magic_ensure_linkage = ((int) &rand);
 
@@ -111,6 +114,7 @@ void fault_print_stats(){
 }
 volatile int magic_ensure_linkage2 = (int) &fault_print_stat;
 
+#ifdef _MINIX
 int do_fault_injector_request_impl(message *m){
     int i;
     if(m->FAULT_INJECTOR_CMD == FAULT_INJECTOR_CMD_OFF){
@@ -128,4 +132,5 @@ int do_fault_injector_request_impl(message *m){
     }
     return OK;
 }
+#endif
 
