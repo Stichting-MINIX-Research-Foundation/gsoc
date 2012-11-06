@@ -86,11 +86,6 @@ void do_pagefaults(message *m)
 		return;
 	}
 
-	/* Make sure this isn't a region that isn't supposed
-	 * to cause pagefaults.
-	 */
-	assert(!(region->flags & VR_NOPF));
-
 	/* If process was writing, see if it's writable. */
 	if(!(region->flags & VR_WRITABLE) && wr) {
 		printf("VM: pagefault: SIGSEGV %d ro map 0x%x %s\n",
@@ -145,15 +140,6 @@ void do_memory(void)
 
 			r = handle_memory(vmp, mem, len, wrflag);
 			break;
-		case VMPTYPE_COWMAP:
-			r = map_memory(who_s, who, mem_s, mem, len, -1);
-			break;
-		case VMPTYPE_SMAP:
-			r = map_memory(who_s, who, mem_s, mem, len, wrflag);
-			break;
-		case VMPTYPE_SUNMAP:
-			r = unmap_memory(who_s, who, mem_s, mem, len, wrflag);
-			break;
 		default:
 			return;
 		}
@@ -191,7 +177,6 @@ int handle_memory(struct vmproc *vmp, vir_bytes mem, vir_bytes len, int wrflag)
 		} else {
 			vir_bytes offset, sublen;
 			assert(region->vaddr <= mem);
-			assert(!(region->flags & VR_NOPF));
 			assert(!(region->vaddr % VM_PAGE_SIZE));
 			offset = mem - region->vaddr;
 			sublen = len;

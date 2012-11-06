@@ -145,11 +145,7 @@ int tcsetattr(int _filedes, int _opt_actions, const struct termios
 #define cfsetospeed(termios_p, speed)	((termios_p)->c_ospeed = (speed), 0)
 #endif
 
-#ifdef _MINIX
-/* Here are the local extensions to the POSIX standard for Minix. Posix
- * conforming programs are not able to access these, and therefore they are
- * only defined when a Minix program is compiled.
- */
+/* Here are the local extensions to the POSIX standard for Minix. */
 
 /* Extensions to the termios c_iflag bit map.  */
 #define IXANY		0x0800	/* allow any key to continue ouptut */
@@ -170,8 +166,16 @@ int tcsetattr(int _filedes, int _opt_actions, const struct termios
 #define VDISCARD          13    /* cc_c[VDISCARD] (^O) */
 
 /* Extensions to baud rate settings. */
+#ifdef _MINIX
 #define B57600		0x0100	/* 57600 baud */
 #define B115200		0x0200	/* 115200 baud */
+#define B230400		0x0400	/* 230400 baud */
+#define B460800		0x0800	/* 460800 baud */
+#define B921600		0x1000	/* 921600 baud */
+#define B1843200	0x2000	/* 1843200 baud */
+#define B3000000	0x4000	/* 3000000 baud */
+#define B3686400	0x8000	/* 3686400 baud */
+#endif /* _MINIX */
 
 /* These are the default settings used by the kernel and by 'stty sane' */
 
@@ -201,7 +205,6 @@ int tcsetattr(int _filedes, int _opt_actions, const struct termios
  * The ioctls TIOCGWINSZ and TIOCSWINSZ can be used to get and set this 
  * information.
  */
-#endif /* _MINIX */
 
 struct winsize
 {
