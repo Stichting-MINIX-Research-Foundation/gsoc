@@ -197,8 +197,8 @@ start)
 	    else
 		    if [ X`/bin/sysenv lwip` = Xyes ]
 		    then
-			dhcpd --lwip &
-			echo -n " dhcpd"
+			echo ""
+			dhclient -v
 		    else
 			daemonize dhcpd
 		    fi
