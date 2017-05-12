@@ -48,6 +48,7 @@ void fpu_sigcontext(struct proc *, struct sigframe_sigcontext *fr, struct
 /* main.c */
 #ifndef UNPAGED
 #define kmain __k_unpaged_kmain
+#define pre_init __k_unpaged_pre_init
 #endif
 void kmain(kinfo_t *cbi);
 void prepare_shutdown(int how);

@@ -76,6 +76,7 @@ int booting_cpu = 0;
 
 void prot_init(void)
 {
+
 	/* tell the HW where we stored our vector table */
 	write_vbar((reg_t)&exc_vector_table);
 
@@ -84,9 +85,10 @@ void prot_init(void)
 	 * data.
 	 */
 
+	dcache_clean(); /* clean the caches */
 	pg_clear();
 	pg_identity(&kinfo); /* Still need 1:1 for device memory . */
-	pg_mapkernel();
+	kinfo.freepde_start = pg_mapkernel();
 	pg_load();
 
 	prot_init_done = 1;
