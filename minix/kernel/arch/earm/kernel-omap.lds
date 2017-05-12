@@ -12,13 +12,14 @@ __k_unpaged__kern_phys_base = _kern_phys_base;
 SECTIONS
 {
 	. = _kern_phys_base;
-	__k_unpaged__kern_unpaged_start = .;
+	_kern_unpaged_start = .;
 
 	.unpaged_text ALIGN(4096) : { unpaged_*.o(.startup); unpaged_*.o(.text) }
 	.unpaged_data ALIGN(4096) : { unpaged_*.o(.data .rodata*) }
+	_kern_unpaged_edata = .;
 	__k_unpaged__kern_unpaged_edata = .;
-
 	.unpaged_bss  ALIGN(4096) : { unpaged_*.o(.bss COMMON) }
+	_kern_unpaged_end = .;
 	__k_unpaged__kern_unpaged_end = .;
 
 	. += _kern_offset;
@@ -41,10 +42,10 @@ SECTIONS
 		. += 4096;
 	}
 	_end = .;
-        __k_unpaged__end = . - _kern_offset;
+	__k_unpaged__end = . - _kern_offset;
 
-      /DISCARD/ :
-       {
-               *(.ARM.exidx*)
-       }
+	/DISCARD/ :
+	{
+		*(.ARM.exidx*)
+	}
 }

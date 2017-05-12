@@ -410,9 +410,8 @@ void cstart(void)
  */
   register char *value;				/* value in key=value pair */
 
-  /* low-level initialization */
   prot_init();
-
+  
   /* determine verbosity */
   if ((value = env_get(VERBOSEBOOTVARNAME)))
 	  verboseboot = atoi(value);

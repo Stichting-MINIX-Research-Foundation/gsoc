@@ -1,5 +1,3 @@
-#define UNPAGED 1	/* for proper kmain() prototype */
-
 #include "kernel/kernel.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -26,9 +24,6 @@
 kinfo_t kinfo;
 struct kmessages kmessages;
 
-/* pg_utils.c uses this; in this phase, there is a 1:1 mapping. */
-phys_bytes vir2phys(void *addr) { return (phys_bytes) addr; }
-
 static void setup_mbi(multiboot_info_t *mbi, char *bootargs);
 
 /* String length used for mb_itoa */
@@ -40,10 +35,6 @@ int kernel_may_alloc = 1;
 /* kernel bss */
 extern u32_t _edata;
 extern u32_t _end;
-
-/* kernel unpaged bss */
-extern char _kern_unpaged_edata;
-extern char _kern_unpaged_end;
 
 /*
  * During low level init many things are not supposed to work
@@ -176,7 +167,7 @@ int overlaps(multiboot_module_t *mod, int n, int cmp_mod)
 
 #define INRANGE(mod, v) ((v) >= mod->mod_start && (v) <= thismod->mod_end)
 #define OVERLAP(mod1, mod2) (INRANGE(mod1, mod2->mod_start) || \
-	    INRANGE(mod1, mod2->mod_end))
+		INRANGE(mod1, mod2->mod_end))
 	for(m = 0; m < n; m++) {
 		multiboot_module_t *thismod = &mod[m];
 		if(m == cmp_mod) continue;
@@ -223,7 +214,7 @@ void setup_mbi(multiboot_info_t *mbi, char *bootargs)
 	for (i = 0; i < MB_MODS_NR; ++i) {
 		mb_modlist[i].mod_start = mb_mods_base + i * mb_mods_align;
 		mb_modlist[i].mod_end = mb_modlist[i].mod_start + mb_mods_align
-		    - ARM_PAGE_SIZE;
+			- ARM_PAGE_SIZE;
 		mb_modlist[i].cmdline = 0;
 	}
 
@@ -246,9 +237,9 @@ void get_parameters(kinfo_t *cbi, char *bootargs)
 	int var_i,value_i, m, k;
 	char *p;
 	extern char _kern_phys_base, _kern_vir_base, _kern_size,
-	    _kern_unpaged_start, _kern_unpaged_end;
+		_kern_unpaged_start, _kern_unpaged_end;
 	phys_bytes kernbase = (phys_bytes) &_kern_phys_base,
-	    kernsize = (phys_bytes) &_kern_size;
+		kernsize = (phys_bytes) &_kern_size;
 #define BUF 1024
 	static char cmdline[BUF];
 
@@ -324,10 +315,10 @@ void get_parameters(kinfo_t *cbi, char *bootargs)
 	/* mem_map has a variable layout */
 	if(mbi->flags & MULTIBOOT_INFO_MEM_MAP) {
 		cbi->mmap_size = 0;
-	        for (mmap = (multiboot_memory_map_t *) mbi->mmap_addr;
-       	     (unsigned long) mmap < mbi->mmap_addr + mbi->mmap_length;
-       	       mmap = (multiboot_memory_map_t *) 
-		      	((unsigned long) mmap + mmap->size + sizeof(mmap->size))) {
+			for (mmap = (multiboot_memory_map_t *) mbi->mmap_addr;
+			 (unsigned long) mmap < mbi->mmap_addr + mbi->mmap_length;
+			   mmap = (multiboot_memory_map_t *) 
+				((unsigned long) mmap + mmap->size + sizeof(mmap->size))) {
 			if(mmap->type != MULTIBOOT_MEMORY_AVAILABLE) continue;
 			add_memmap(cbi, mmap->mm_base_addr, mmap->mm_length);
 		}
@@ -387,16 +378,13 @@ void set_machine_id(char *cmdline)
 
 kinfo_t *pre_init(int argc, char **argv)
 {
-	char *bootargs;
-	/* This is the main "c" entry point into the kernel. It gets called
-	   from head.S */
-	   
-	/* Clear BSS */
-	memset(&_edata, 0, (u32_t)&_end - (u32_t)&_edata);
-        memset(&_kern_unpaged_edata, 0, (u32_t)&_kern_unpaged_end - (u32_t)&_kern_unpaged_edata);
+	char* bootargs;
 
+	/* This is the main "c" entry point into the kernel. It gets called
+	from head.S */
+	   
 	/* we get called in a c like fashion where the first arg
-         * is the program name (load address) and the rest are
+	 * is the program name (load address) and the rest are
 	 * arguments. by convention the second argument is the
 	 *  command line */
 	if (argc != 2) {
@@ -405,24 +393,12 @@ kinfo_t *pre_init(int argc, char **argv)
 
 	bootargs = argv[1];
 	set_machine_id(bootargs);
-	bsp_ser_init();
-	/* Get our own copy boot params pointed to by ebx.
+
+	/* Get our own copy boot params pointed to by r1.
 	 * Here we find out whether we should do serial output.
 	 */
 	get_parameters(&kinfo, bootargs);
 
-	/* Make and load a pagetable that will map the kernel
-	 * to where it should be; but first a 1:1 mapping so
-	 * this code stays where it should be.
-	 */
-	dcache_clean(); /* clean the caches */
-	pg_clear();
-	pg_identity(&kinfo);
-	kinfo.freepde_start = pg_mapkernel();
-	pg_load();
-	vm_enable_paging();
-
-	/* Done, return boot info so it can be passed to kmain(). */
 	return &kinfo;
 }
 
@@ -431,10 +407,4 @@ kinfo_t *pre_init(int argc, char **argv)
  * ensure this). The following methods are used in that context. Once we jump to kmain they are no
  * longer used and the "real" implementations are visible
  */
-void send_diag_sig(void) { }
-void minix_shutdown(minix_timer_t *t) { arch_shutdown(0); }
-void busy_delay_ms(int x) { }
-int raise(int n) { panic("raise(%d)\n", n); }
-int kern_phys_map_ptr( phys_bytes base_address, vir_bytes io_size, int vm_flags,
-struct kern_phys_map * priv, vir_bytes ptr) { return -1; };
 struct machine machine; /* pre init stage machine */
