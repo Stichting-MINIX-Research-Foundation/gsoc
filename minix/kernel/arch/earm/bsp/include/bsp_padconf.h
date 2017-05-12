@@ -3,8 +3,12 @@
 
 #ifndef __ASSEMBLY__
 
-void bsp_padconf_init(void);
-int bsp_padconf_set(u32_t padconf, u32_t mask, u32_t value);
+#define PADCONF_GENERATE(name) \
+	void name##_padconf_init (void); \
+	int  name##_padconf_set (u32_t padconf, u32_t mask, u32_t value);
+
+PADCONF_GENERATE(rpi);
+PADCONF_GENERATE(omap);
 
 #endif /* __ASSEMBLY__ */
 

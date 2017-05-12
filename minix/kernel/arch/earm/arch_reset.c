@@ -22,6 +22,9 @@
 #include "kernel/debug.h"
 #include "direct_utils.h"
 #include <machine/multiboot.h>
+#include "bsp_table.h"
+
+extern bsp_table *bsp_tb;
 
 void
 halt_cpu(void)
@@ -35,7 +38,7 @@ halt_cpu(void)
 void
 reset(void)
 {
-	bsp_reset(); /* should not exit */
+	bsp_tb->bsp_reset(); /* should not exit */
 	direct_print("Reset not supported.");
 	while (1);
 }
@@ -43,7 +46,7 @@ reset(void)
 void
 poweroff(void)
 {
-	bsp_poweroff();
+	bsp_tb->bsp_poweroff();
 	/* fallback option: hang */
 	direct_print("Unable to power-off this device.");
 	while (1);
@@ -76,7 +79,7 @@ arch_shutdown(int how)
 void
 ser_putc(char c)
 {
-	bsp_ser_putc(c);
+	bsp_tb->bsp_ser_putc(c);
 }
 
 #endif

@@ -2,6 +2,10 @@
 #define _BSP_INIT_H_
 
 /* BSP init */
-void bsp_init(void);
+#define INIT_GENERATE(name) \
+	void name##_init (void);
+
+INIT_GENERATE(rpi);
+INIT_GENERATE(omap);
 
 #endif /* __BSP_INIT_H__ */

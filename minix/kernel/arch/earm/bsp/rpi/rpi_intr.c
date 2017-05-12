@@ -41,7 +41,7 @@ dummy_irq_handler()
 }
 
 int
-intr_init(const int auto_eoi)
+rpi_intr_init(const int auto_eoi)
 {
 	if (BOARD_IS_RPI_2_B(machine.board_id) ||
 	    BOARD_IS_RPI_3_B(machine.board_id)) {
@@ -81,7 +81,7 @@ intr_init(const int auto_eoi)
 }
 
 void
-bsp_irq_handle(void)
+rpi_irq_handle(void)
 {
 	/* Function called from assembly to handle interrupts */
 	uint32_t irq_0_31 = mmio_read(rpi2_intr.core_base + QA7_CORE0INT);
@@ -114,7 +114,7 @@ bsp_irq_handle(void)
 }
 
 void
-bsp_irq_unmask(int irq)
+rpi_irq_unmask(int irq)
 {
 	if (irq < 32)
 		/* Nothing to do */
@@ -128,7 +128,7 @@ bsp_irq_unmask(int irq)
 }
 
 void
-bsp_irq_mask(const int irq)
+rpi_irq_mask(const int irq)
 {
 	if (irq < 32)
 		/* Nothing to do */

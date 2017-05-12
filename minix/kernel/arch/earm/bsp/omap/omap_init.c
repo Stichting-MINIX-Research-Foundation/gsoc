@@ -5,18 +5,18 @@
 #include "bsp_reset.h"
 
 void
-bsp_init(void)
+omap_init(void)
 {
 
 	/* map memory for padconf */
-	bsp_padconf_init();
+	omap_padconf_init();
 
 	/* map memory for rtc */
 	omap3_rtc_init();
 
 	/* map memory for reset control */
-	bsp_reset_init();
+	omap_reset_init();
 
 	/* disable watchdog */
-	bsp_disable_watchdog();
+	omap_disable_watchdog();
 }

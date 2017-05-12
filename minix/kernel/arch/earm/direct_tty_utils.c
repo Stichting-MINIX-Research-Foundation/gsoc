@@ -3,6 +3,9 @@
 #include "direct_utils.h"
 #include "bsp_serial.h"
 #include "glo.h"
+#include "bsp_table.h"
+
+extern bsp_table *bsp_tb;
 
 void direct_cls(void)
 {
@@ -12,7 +15,7 @@ void direct_cls(void)
 void direct_print_char(char c)
 {
 	if(c == '\n')
-		bsp_ser_putc('\r');
+		bsp_tb->bsp_ser_putc('\r');
 	ser_putc(c);
 }
 

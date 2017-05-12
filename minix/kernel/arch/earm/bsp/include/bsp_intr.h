@@ -3,9 +3,14 @@
 
 #ifndef __ASSEMBLY__
 
-void bsp_irq_unmask(int irq);
-void bsp_irq_mask(int irq);
-void bsp_irq_handle(void);
+#define INTR_GENERATE(name) \
+	void name##_irq_unmask (int irq); \
+	void name##_irq_mask (int irq); \
+	void name##_irq_handle (void); \
+	int  name##_intr_init(const int auto_eoi);
+
+INTR_GENERATE(rpi);
+INTR_GENERATE(omap);
 
 #endif /* __ASSEMBLY__ */
 

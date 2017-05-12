@@ -23,6 +23,9 @@
 #include "bsp_serial.h"
 
 #include "glo.h"
+#include "bsp_table.h"
+
+extern bsp_table *bsp_tb;
 
 void * k_stacks;
 
@@ -128,7 +131,7 @@ void arch_init(void)
         /* enable cycle counter in user mode: ARM ARM B4.1.124 */
         value = PMU_PMUSERENR_EN;
         asm volatile ("MCR p15, 0, %0, c9, c14, 0\t\n": : "r" (value));
-	bsp_init();
+	bsp_tb->bsp_init();
 }
 
 /*===========================================================================*
@@ -182,7 +185,7 @@ void get_randomness(struct k_randomness *rand, int source)
 
 void arch_ser_init(void)
 {
-	bsp_ser_init();
+	bsp_tb->bsp_ser_init();
 }
 
 /*===========================================================================*/
