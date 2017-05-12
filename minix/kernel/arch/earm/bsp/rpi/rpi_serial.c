@@ -39,7 +39,7 @@ static kern_phys_map serial_phys_map;
  * in high memory so keep in mind there are two copies of this code in the kernel.
  */
 void
-bsp_ser_init()
+rpi_ser_init()
 {
 	if (BOARD_IS_RPI_2_B(machine.board_id) ||
 	    BOARD_IS_RPI_3_B(machine.board_id)) {
@@ -71,7 +71,7 @@ bsp_ser_init()
 }
 
 void
-bsp_ser_putc(char c)
+rpi_ser_putc(char c)
 {
 	int i;
 	assert(pl011_serial.base);

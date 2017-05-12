@@ -25,14 +25,17 @@
 #include "bsp_timer.h"
 #include "bsp_intr.h"
 #include "cpufunc_timer.h"
+#include "bsp_table.h"
 
 static unsigned tsc_per_ms[CONFIG_MAX_CPUS];
 static unsigned tsc_per_tick[CONFIG_MAX_CPUS];
 static uint64_t tsc_per_state[CONFIG_MAX_CPUS][CPUSTATES];
 
+extern bsp_table *bsp_tb;
+
 int init_local_timer(unsigned freq)
 {
-	bsp_timer_init(freq);
+	bsp_tb->bsp_timer_init(freq);
 
 	if (BOARD_IS_BBXM(machine.board_id)) {
 		tsc_per_ms[0] = 16250;
@@ -53,12 +56,12 @@ int init_local_timer(unsigned freq)
 
 void stop_local_timer(void)
 {
-	bsp_timer_stop();
+	bsp_tb->bsp_timer_stop();
 }
 
 void arch_timer_int_handler(void)
 {
-	bsp_timer_int_handler();
+	bsp_tb->bsp_timer_int_handler();
 }
 
 void cycles_accounting_init(void)
@@ -186,7 +189,7 @@ void restart_local_timer(void)
 
 int register_local_timer_handler(const irq_handler_t handler)
 {
-	return bsp_register_timer_handler(handler);
+	return bsp_tb->bsp_register_timer_handler(handler);
 }
 
 u64_t ms_2_cpu_time(unsigned ms)

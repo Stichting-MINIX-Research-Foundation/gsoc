@@ -33,41 +33,41 @@ struct omap_reset
 	vir_bytes size;
 };
 
-static struct omap_reset omap_reset;
+static struct omap_reset omap_res;
 
 static kern_phys_map reset_phys_map;
 
 void
-bsp_reset_init(void)
+omap_reset_init(void)
 {
 	if (BOARD_IS_BBXM(machine.board_id)) {
-		omap_reset.base = DM37XX_CM_BASE;
-		omap_reset.size = DM37XX_CM_SIZE;
+		omap_res.base = DM37XX_CM_BASE;
+		omap_res.size = DM37XX_CM_SIZE;
 	} else if (BOARD_IS_BB(machine.board_id)) {
-		omap_reset.base = AM335X_CM_BASE;
-		omap_reset.size = AM335X_CM_SIZE;
+		omap_res.base = AM335X_CM_BASE;
+		omap_res.size = AM335X_CM_SIZE;
 	}
 
-	kern_phys_map_ptr(omap_reset.base, omap_reset.size,
+	kern_phys_map_ptr(omap_res.base, omap_res.size,
 	    VMMF_UNCACHED | VMMF_WRITE,
-	    &reset_phys_map, (vir_bytes) & omap_reset.base);
+	    &reset_phys_map, (vir_bytes) & omap_res.base);
 }
 
 void
-bsp_reset(void)
+omap_reset(void)
 {
 	if (BOARD_IS_BBXM(machine.board_id)) {
-		mmio_set((omap_reset.base + DM37XX_PRM_RSTCTRL_REG),
+		mmio_set((omap_res.base + DM37XX_PRM_RSTCTRL_REG),
 		    (1 << DM37XX_RST_DPLL3_BIT));
 	} else if (BOARD_IS_BB(machine.board_id)) {
-		mmio_set((omap_reset.base + AM335X_PRM_DEVICE_OFFSET +
+		mmio_set((omap_res.base + AM335X_PRM_DEVICE_OFFSET +
 			AM335X_PRM_RSTCTRL_REG),
 		    (1 << AM335X_RST_GLOBAL_WARM_SW_BIT));
 	}
 }
 
 void
-bsp_poweroff(void)
+omap_poweroff(void)
 {
 
 /*
@@ -88,7 +88,7 @@ bsp_poweroff(void)
 	}
 }
 
-void bsp_disable_watchdog(void)
+void omap_disable_watchdog(void)
 {
         if(BOARD_IS_BB(machine.board_id)) {
 		mmio_write(AM335X_WDT_BASE+AM335X_WDT_WSPR, 0xAAAA);

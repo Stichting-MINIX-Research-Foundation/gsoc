@@ -133,7 +133,7 @@ static struct omap_timer *fr_timer;
 static int done = 0;
 
 int
-bsp_register_timer_handler(const irq_handler_t handler)
+omap_register_timer_handler(const irq_handler_t handler)
 {
 	/* Initialize the CLOCK's interrupt hook. */
 	omap3_timer_hook.proc_nr_e = NONE;
@@ -141,7 +141,7 @@ bsp_register_timer_handler(const irq_handler_t handler)
 
 	put_irq_handler(&omap3_timer_hook, timer->irq_nr, handler);
 	/* only unmask interrupts after registering */
-	bsp_irq_unmask(timer->irq_nr);
+	omap_irq_unmask(timer->irq_nr);
 
 	return 0;
 }
@@ -264,7 +264,7 @@ omap3_frclock_stop(void)
 }
 
 void
-bsp_timer_init(unsigned freq)
+omap_timer_init(unsigned freq)
 {
 	/* we only support 1ms resolution */
 	u32_t tisr;
@@ -328,7 +328,7 @@ bsp_timer_init(unsigned freq)
 }
 
 void
-bsp_timer_stop(void)
+omap_timer_stop(void)
 {
 	mmio_clear(timer->base + timer->regs->TCLR, OMAP3_TCLR_ST);
 }
@@ -369,7 +369,7 @@ frc_overflow_check(u32_t cur_frc)
 }
 
 void
-bsp_timer_int_handler(void)
+omap_timer_int_handler(void)
 {
 	/* Clear all interrupts */
 	u32_t tisr, now;
@@ -387,7 +387,7 @@ bsp_timer_int_handler(void)
 
 /* Use the free running clock as TSC */
 void
-read_tsc_64(u64_t * t)
+omap_read_tsc_64(u64_t * t)
 {
 	u32_t now;
 	now = read_frc();

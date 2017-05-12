@@ -3,10 +3,15 @@
 
 #ifndef __ASSEMBLY__
 
-void bsp_timer_init(unsigned freq);
-void bsp_timer_stop(void);
-int  bsp_register_timer_handler(const irq_handler_t handler);
-void bsp_timer_int_handler(void);
+#define TIMER_GENERATE(name) \
+	void name##_timer_init (unsigned freq); \
+	void name##_timer_stop (void); \
+	int  name##_register_timer_handler (const irq_handler_t handler); \
+	void name##_timer_int_handler (void); \
+	void name##_read_tsc_64 (u64_t * t)
+
+TIMER_GENERATE(rpi);
+TIMER_GENERATE(omap);
 
 #endif /* __ASSEMBLY__ */
 

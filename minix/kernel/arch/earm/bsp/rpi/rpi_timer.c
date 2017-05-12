@@ -34,7 +34,7 @@ static kern_phys_map st_timer_phys_map;
 static kern_phys_map st_timer_user_phys_map;
 
 int
-bsp_register_timer_handler(const irq_handler_t handler)
+rpi_register_timer_handler(const irq_handler_t handler)
 {
 	/* Initialize the CLOCK's interrupt hook. */
 	arm_timer_hook.proc_nr_e = NONE;
@@ -43,10 +43,10 @@ bsp_register_timer_handler(const irq_handler_t handler)
 	put_irq_handler(&arm_timer_hook, arm_timer.irq_nr, handler);
 
 	/* Prepare next firing of timer */
-	bsp_timer_int_handler();
+	rpi_timer_int_handler();
 
 	/* only unmask interrupts after registering */
-	bsp_irq_unmask(arm_timer.irq_nr);
+	rpi_irq_unmask(arm_timer.irq_nr);
 
 	return 0;
 }
@@ -62,7 +62,7 @@ kern_phys_st_user_mapped(vir_bytes id, phys_bytes address)
 }
 
 void
-bsp_timer_init(unsigned freq)
+rpi_timer_init(unsigned freq)
 {
 	arm_timer.freq = freq;
 
@@ -103,13 +103,13 @@ bsp_timer_init(unsigned freq)
 }
 
 void
-bsp_timer_stop()
+rpi_timer_stop()
 {
-	bsp_irq_mask(arm_timer.irq_nr);
+	rpi_irq_mask(arm_timer.irq_nr);
 }
 
 void
-bsp_timer_int_handler()
+rpi_timer_int_handler()
 {
 	if (arm_timer.st_workaround) {
 		/* Arm next timer countdown and enable timer */
@@ -129,7 +129,7 @@ bsp_timer_int_handler()
 
 /* Use the free running clock as TSC */
 void
-read_tsc_64(u64_t * t)
+rpi_read_tsc_64(u64_t * t)
 {
 	if (arm_timer.st_workaround)
 		*t = read_cntv_cval();

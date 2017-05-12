@@ -10,7 +10,8 @@ CPPFLAGS.subr_prf.c+= -Dputchar=kputc
 # Activate optional support, may be deactivated.
 CPPFLAGS.subr_prf.c+= -DLIBSA_PRINTF_LONGLONG_SUPPORT -DLIBSA_PRINTF_WIDTH_SUPPORT
 
-.include "bsp/${BSP_NAME}/Makefile.inc"
+.include "bsp/omap/Makefile.inc"
+.include "bsp/rpi/Makefile.inc"
 
 # some object files we give a symbol prefix (or namespace) of __k_unpaged_
 # that must live in their own unique namespace.
@@ -21,7 +22,6 @@ unpaged_${unpaged_obj}: ${unpaged_obj}
 UNPAGED_OBJS += unpaged_${unpaged_obj}
 ORIG_UNPAGED_OBJS += ${unpaged_obj}
 .endfor
-
 
 CLEANFILES+= ${ORIG_UNPAGED_OBJS}
 

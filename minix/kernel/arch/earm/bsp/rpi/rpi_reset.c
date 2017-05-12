@@ -13,21 +13,21 @@
 #include "bsp_reset.h"
 
 void
-bsp_reset_init(void)
+rpi_reset_init(void)
 {
 }
 
 void
-bsp_reset(void)
+rpi_reset(void)
 {
 }
 
 void
-bsp_poweroff(void)
+rpi_poweroff(void)
 {
 }
 
-void bsp_disable_watchdog(void)
+void rpi_disable_watchdog(void)
 {
 }
 

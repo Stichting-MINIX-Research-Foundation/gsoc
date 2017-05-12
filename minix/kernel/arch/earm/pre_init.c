@@ -13,6 +13,7 @@
 #include "arch_proto.h"
 #include "direct_utils.h"
 #include "bsp_serial.h"
+#include "bsp_table.h"
 #include "glo.h"
 #include <machine/multiboot.h>
 
@@ -35,6 +36,33 @@ int kernel_may_alloc = 1;
 /* kernel bss */
 extern u32_t _edata;
 extern u32_t _end;
+
+#define BSP_TABLE_GENERATE(name) \
+	bsp_table name##_bsp_table = { \
+		.bsp_init = name##_init, \
+		.bsp_irq_unmask = name##_irq_unmask, \
+		.bsp_irq_mask = name##_irq_mask, \
+		.bsp_irq_handle = name##_irq_handle, \
+		.bsp_padconf_init = name##_padconf_init, \
+		.bsp_padconf_set = name##_padconf_set, \
+		.bsp_reset_init = name##_reset_init, \
+		.bsp_reset = name##_reset, \
+		.bsp_poweroff = name##_poweroff, \
+		.bsp_disable_watchdog = name##_disable_watchdog, \
+		.bsp_ser_init = name##_ser_init, \
+		.bsp_ser_putc = name##_ser_putc, \
+		.bsp_timer_init = name##_timer_init, \
+		.bsp_timer_stop = name##_timer_stop, \
+		.bsp_register_timer_handler = name##_register_timer_handler, \
+		.bsp_timer_int_handler = name##_timer_int_handler, \
+		.read_tsc_64 = name##_read_tsc_64, \
+		.intr_init = name##_intr_init \
+	}
+
+BSP_TABLE_GENERATE(rpi);
+BSP_TABLE_GENERATE(omap);
+
+bsp_table *bsp_tb;
 
 /*
  * During low level init many things are not supposed to work
@@ -376,6 +404,31 @@ void set_machine_id(char *cmdline)
 	}
 }
 
+void set_bsp_table ()
+{
+	if (BOARD_IS_BB(machine.board_id) || BOARD_IS_BBXM(machine.board_id)) {
+		bsp_tb = &omap_bsp_table;
+	}
+	else if (BOARD_IS_RPI_2_B(machine.board_id) || BOARD_IS_RPI_3_B(machine.board_id)) {
+		bsp_tb = &rpi_bsp_table;
+	}
+}
+
+void read_tsc_64(u64_t * t) 
+{
+	bsp_tb->read_tsc_64(t);
+}
+
+void bsp_irq_handle(void) 
+{
+	bsp_tb->bsp_irq_handle();
+}
+
+int intr_init(const int auto_eoi)
+{
+	return bsp_tb->intr_init (auto_eoi);
+}
+
 kinfo_t *pre_init(int argc, char **argv)
 {
 	char* bootargs;
@@ -393,6 +446,7 @@ kinfo_t *pre_init(int argc, char **argv)
 
 	bootargs = argv[1];
 	set_machine_id(bootargs);
+	set_bsp_table();
 
 	/* Get our own copy boot params pointed to by r1.
 	 * Here we find out whether we should do serial output.
