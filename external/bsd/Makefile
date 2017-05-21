@@ -6,7 +6,7 @@
 SUBDIR=	byacc \
 	fetch file flex less \
 	libarchive libevent mdocml \
-	tmux top
+	tmux top libfdt
 
 .if (${MKATF} != "no")
 SUBDIR+= atf

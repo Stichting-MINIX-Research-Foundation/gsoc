@@ -707,6 +707,8 @@
 ./usr/lib/libexpat.so                                   minix-base
 ./usr/lib/libexpat.so.2                                 minix-base
 ./usr/lib/libexpat.so.2.1                               minix-base
+./usr/lib/libfdt.a                                      minix-base
+./usr/lib/libfdt_pic.a                                      minix-base
 ./usr/lib/libfetch.so                                   minix-base
 ./usr/lib/libfetch.so.3                                 minix-base
 ./usr/lib/libfetch.so.3.0                               minix-base

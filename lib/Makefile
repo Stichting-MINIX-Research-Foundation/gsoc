@@ -82,7 +82,7 @@ SUBDIR+=	\
 		libpci libprop \
 		libpuffs librmt \
 		libterminfo \
-		libutil libz
+		libutil libz \
 
 .if !defined(BSD_MK_COMPAT_FILE)
 #SUBDIR+=	libkern
@@ -110,6 +110,7 @@ SUBDIR+=	../external/apache2/mDNSResponder/lib
 
 #SUBDIR+=	../external/bsd/am-utils/lib
 SUBDIR+=	../external/bsd/blacklist/lib
+SUBDIR+=	../external/bsd/libfdt/lib
 
 SUBDIR+=	../external/bsd/flex/lib
 #SUBDIR+=	../external/bsd/tre/lib

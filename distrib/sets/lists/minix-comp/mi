@@ -331,6 +331,7 @@
 ./usr/include/expat.h                                   minix-comp
 ./usr/include/expat_external.h                          minix-comp
 ./usr/include/fcntl.h                                   minix-comp
+./usr/include/fdt.h                                     minix-comp
 ./usr/include/fenv.h                                    minix-comp
 ./usr/include/fetch.h                                   minix-comp
 ./usr/include/float.h                                   minix-comp
@@ -1125,6 +1126,9 @@
 ./usr/include/libdde/usb_server.h                       minix-comp
 ./usr/include/libelf.h                                  minix-comp
 ./usr/include/libexec.h                                 minix-comp
+./usr/include/libfdt.h                                  minix-comp
+./usr/include/libfdt_env.h                              minix-comp
+./usr/include/libfdt_internal.h                         minix-comp
 ./usr/include/libgen.h                                  minix-comp
 ./usr/include/libutil.h                                 minix-comp
 ./usr/include/limits.h                                  minix-comp
