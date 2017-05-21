@@ -32,6 +32,8 @@ SRCS+=	mpx.S arch_clock.c arch_do_vmctl.c arch_system.c do_padconf.c \
 
 OBJS.kernel+=	${UNPAGED_OBJS}
 
+LDADD+=-lfdt
+
 klib.o mpx.o head.o: procoffsets.h
 
 SRCS+= procoffsets.h

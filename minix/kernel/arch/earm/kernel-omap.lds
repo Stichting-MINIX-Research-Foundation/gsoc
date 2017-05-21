@@ -45,7 +45,7 @@ SECTIONS
 	__k_unpaged__end = . - _kern_offset;
 
 	/DISCARD/ :
-	{
+	{	
 		*(.ARM.exidx*)
 	}
 }

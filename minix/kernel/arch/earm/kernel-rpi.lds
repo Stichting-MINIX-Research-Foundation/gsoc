@@ -34,7 +34,7 @@ SECTIONS
 	.data ALIGN(4096) : AT(ADDR(.data) - _kern_offset) { *(.data .rodata* ) }
 	. = ALIGN(4096);
 	_edata = .;
-	__k_unpaged__edata = . - _kern_offset; 
+	__k_unpaged__edata = . - _kern_offset;
 	.bss ALIGN(4096)  : AT(ADDR(.bss) - _kern_offset) { *(.bss* COMMON)
 		__k_unpaged__kern_size = . - _kern_vir_base;
 		_kern_size = __k_unpaged__kern_size;

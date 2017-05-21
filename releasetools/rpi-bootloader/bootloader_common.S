@@ -1,5 +1,6 @@
 _start:
 	ldr	sp, =stack_top
+	mov r9, r2
 
 	/* Print banner */
 	ldr	r0, =msg_empty
@@ -72,6 +73,7 @@ final_preparations:
 	bl	puts
 	mov	r0, #2
 	ldr	r1, =argv
+	mov r2, r9
 	b	0x00200000
 
 /*
@@ -314,7 +316,7 @@ memcpy_done:
 	pop	{r5-r11}
 	bx	lr
 
-msg_empty:
+	msg_empty:
 	.asciz ""
 msg_banner:
 	.asciz "MINIX 3 unpacker for Raspberry Pi"
