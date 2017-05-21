@@ -25,7 +25,7 @@ BSP_NAME=omap
 : ${BUILDSH=build.sh}
 
 : ${SETS="minix-base minix-comp minix-games minix-man minix-tests tests"}
-: ${IMG=minix_arm_sd_omap.img}
+: ${IMG=minix_arm_sd.img}
 
 # ARM definitions:
 : ${BUILDVARS=-V MKGCCCMDS=yes -V MKLLVM=no}

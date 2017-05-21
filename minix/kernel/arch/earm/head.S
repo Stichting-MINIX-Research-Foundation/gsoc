@@ -44,14 +44,16 @@ multiboot_init:
  *
  * in r0 - argc
  * in r1 - argv
+ * in r2 - dev_tree
  *
  * r4 - pg_table
  * r9 - _kern_phys_base
  *
  * out r0 - argc
  * out r1 - argv
+ * out r2 - dev_tree
  */ 
-
+ 	mov r10, r2
 	ldr r6, =0xFFF00000
 	and r9, pc, r6
 
@@ -224,11 +226,13 @@ setup:
 	mcr p15, 0, r3, c1, c0, 0
 	isb
 
+	mov r2, r10
 	ldr	sp, =k_initial_stktop	/* make usable stack */
-	/* Terminate stack */
+
+	mov r3, #0
+	push {r3}
 	mov	fp, #0
-	mov	r2, #0
-	push	{r2}	
+	push	{r3}	
 	bl _C_LABEL(pre_init)
 
 	ldr r4, =1384 // FIXME
@@ -241,7 +245,7 @@ setup:
 	 * the boot info pointer returned by pre_init in r0.
 	 * Set the highly mapped stack and initialize it.
 	 *
-	 * Afther that call kmain with r0 still pointing to boot info
+	 * After that call kmain with r0 still pointing to boot info
 	 */
 	ldr	r2, =_C_LABEL(kmain)	/* r0 holds kinfo_t ptr */
 	bx	r2
@@ -256,4 +260,3 @@ pg_table:
 	.space 16384
 freepde:
 	.word 0
-

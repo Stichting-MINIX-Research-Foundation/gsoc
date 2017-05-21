@@ -25,7 +25,7 @@ BSP_NAME=rpi
 : ${BUILDSH=build.sh}
 
 : ${SETS="minix-base"}
-: ${IMG=minix_arm_sd_rpi.img}
+: ${IMG=minix_arm_sd.img}
 
 # ARM definitions:
 : ${BUILDVARS=-V MKGCCCMDS=yes -V MKLLVM=no}
@@ -87,6 +87,8 @@ ${CROSS_PREFIX}objcopy ${OBJ}/minix/kernel/kernel -O binary ${ROOT_DIR}/kernel.b
 ${CROSS_PREFIX}as ${RELEASETOOLSDIR}/rpi-bootloader/bootloader.S -o ${RELEASETOOLSDIR}/rpi-bootloader/bootloader.o
 ${CROSS_PREFIX}ld ${RELEASETOOLSDIR}/rpi-bootloader/bootloader.o -o ${RELEASETOOLSDIR}/rpi-bootloader/bootloader.elf -Ttext=0x8000 2> /dev/null
 ${CROSS_PREFIX}objcopy -O binary ${RELEASETOOLSDIR}/rpi-bootloader/bootloader.elf ${ROOT_DIR}/minix_rpi.bin
+# copy device trees
+cp ${RELEASETOOLSDIR}/rpi-firmware/bcm*.dtb ${ROOT_DIR}
 # pack modules
 (cd ${ROOT_DIR} && cat <<EOF | cpio -o --format=newc >> ${ROOT_DIR}/minix_rpi.bin 2>/dev/null
 kernel.bin
@@ -109,11 +111,15 @@ cp -r releasetools/rpi-firmware/* ${ROOT_DIR}
 # Write GPU config file
 cat <<EOF >${ROOT_DIR}/config.txt
 [pi3]
-kernel=minix_rpi.bin
+device_tree=bcm2710-rpi-3-b.dtb
 enable_uart=1
 dtoverlay=pi3-disable-bt
 
 [pi2]
+device_tree=bcm2709-rpi-2-b.dtb
+
+[all]
+device_tree_address=0x100
 kernel=minix_rpi.bin
 EOF
 
@@ -129,4 +135,4 @@ echo ""
 echo "Disk image at `pwd`/${IMG}"
 echo ""
 echo "To boot this image on kvm:"
-echo "qemu-system-arm -M raspi2 -drive if=sd,cache=writeback,format=raw,file=$(pwd)/${IMG} -bios ${ROOT_DIR}/minix_rpi.bin -serial stdio"
+echo "qemu-system-arm -M raspi2 -kernel if=sd,cache=writeback,format=raw,file=/$(pwd)/${IMG} -bios ${ROOT_DIR}/minix_rpi.bin -serial stdio -dtb $(pwd)/releasetools/rpi-firmware/bcm2709-rpi-2-b.dtb "

@@ -17,6 +17,9 @@
 #include "glo.h"
 #include <machine/multiboot.h>
 
+#include <libfdt.h>
+#include <libfdt_internal.h>
+
 #if USE_SYSDEBUG
 #define MULTIBOOT_VERBOSE 1
 #endif
@@ -38,30 +41,28 @@ extern u32_t _edata;
 extern u32_t _end;
 
 #define BSP_TABLE_GENERATE(name) \
-	bsp_table name##_bsp_table = { \
-		.bsp_init = name##_init, \
-		.bsp_irq_unmask = name##_irq_unmask, \
-		.bsp_irq_mask = name##_irq_mask, \
-		.bsp_irq_handle = name##_irq_handle, \
-		.bsp_padconf_init = name##_padconf_init, \
-		.bsp_padconf_set = name##_padconf_set, \
-		.bsp_reset_init = name##_reset_init, \
-		.bsp_reset = name##_reset, \
-		.bsp_poweroff = name##_poweroff, \
-		.bsp_disable_watchdog = name##_disable_watchdog, \
-		.bsp_ser_init = name##_ser_init, \
-		.bsp_ser_putc = name##_ser_putc, \
-		.bsp_timer_init = name##_timer_init, \
-		.bsp_timer_stop = name##_timer_stop, \
-		.bsp_register_timer_handler = name##_register_timer_handler, \
-		.bsp_timer_int_handler = name##_timer_int_handler, \
-		.read_tsc_64 = name##_read_tsc_64, \
-		.intr_init = name##_intr_init \
-	}
+	do { \
+		platform_tb.bsp_init = name##_init; \
+		platform_tb.bsp_irq_unmask = name##_irq_unmask; \
+		platform_tb.bsp_irq_mask = name##_irq_mask; \
+		platform_tb.bsp_irq_handle = name##_irq_handle; \
+		platform_tb.bsp_padconf_init = name##_padconf_init; \
+		platform_tb.bsp_padconf_set = name##_padconf_set; \
+		platform_tb.bsp_reset_init = name##_reset_init;\
+		platform_tb.bsp_reset = name##_reset; \
+		platform_tb.bsp_poweroff = name##_poweroff; \
+		platform_tb.bsp_disable_watchdog = name##_disable_watchdog; \
+		platform_tb.bsp_ser_init = name##_ser_init; \
+		platform_tb.bsp_ser_putc = name##_ser_putc; \
+		platform_tb.bsp_timer_init = name##_timer_init; \
+		platform_tb.bsp_timer_stop = name##_timer_stop; \
+		platform_tb.bsp_register_timer_handler = name##_register_timer_handler; \
+		platform_tb.bsp_timer_int_handler = name##_timer_int_handler; \
+		platform_tb.read_tsc_64 = name##_read_tsc_64; \
+		platform_tb.intr_init = name##_intr_init; \
+	} while(0)
 
-BSP_TABLE_GENERATE(rpi);
-BSP_TABLE_GENERATE(omap);
-
+bsp_table platform_tb;
 bsp_table *bsp_tb;
 
 /*
@@ -404,13 +405,51 @@ void set_machine_id(char *cmdline)
 	}
 }
 
-void set_bsp_table ()
+void set_bsp_table()
 {
 	if (BOARD_IS_BB(machine.board_id) || BOARD_IS_BBXM(machine.board_id)) {
-		bsp_tb = &omap_bsp_table;
+		BSP_TABLE_GENERATE(omap);
 	}
 	else if (BOARD_IS_RPI_2_B(machine.board_id) || BOARD_IS_RPI_3_B(machine.board_id)) {
-		bsp_tb = &rpi_bsp_table;
+		BSP_TABLE_GENERATE(rpi);
+	}
+	bsp_tb = &platform_tb;
+}
+
+static void test_node(const void *fdt, int parent_offset)
+{
+	uint32_t subnodes;
+	const fdt32_t *prop;
+	int offset;
+	int count;
+	int len;
+	/* This property indicates the number of subnodes to expect */
+	prop = fdt_getprop(fdt, parent_offset, "subnodes", &len);
+	if (!prop || len != sizeof(fdt32_t)) {
+		printf("Missing/invalid subnodes property at '%s'",
+		fdt_get_name(fdt, parent_offset, NULL));
+	}
+	subnodes = fdt32_to_cpu(*prop);
+	count = 0;
+	fdt_for_each_subnode(offset, fdt, parent_offset)
+	count++;
+	if (count != subnodes) {
+		printf("Node '%s': Expected %d subnodes, got %d\n",
+	    	fdt_get_name(fdt, parent_offset, NULL), subnodes, count);
+	}
+}
+
+void parse_dev_tree(const void *dev_tree)
+{
+	uint32_t offset;
+	uint32_t len;
+	if (!fdt_check_header(dev_tree)) {
+		printf("BAD HEADER\n");
+		return;
+	}
+	int node;
+	fdt_for_each_subnode(node, dev_tree, 0) {
+		test_node(dev_tree, node);
 	}
 }
 
@@ -432,6 +471,9 @@ int intr_init(const int auto_eoi)
 kinfo_t *pre_init(int argc, char **argv)
 {
 	char* bootargs;
+
+	void* dev_tree;
+	asm volatile ("ldr %0, [%%r2]":"=r"(dev_tree)::"r2", "memory");
 
 	/* This is the main "c" entry point into the kernel. It gets called
 	from head.S */
