@@ -5,13 +5,12 @@
 .align 4
 argv:
 	.word	argv0
-	.word	argv1
-	.word	0x0
+	.word   argv1
+        .word	0x0
 argv0:
 	.asciz "0x00200000"
 argv1:
-	.asciz "board_name=RPI_3_B console=tty00"
-
+        .asciz ""
 .data
 .align 4
 	.space 256
