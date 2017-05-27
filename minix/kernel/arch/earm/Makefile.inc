@@ -28,7 +28,7 @@ CLEANFILES+= ${ORIG_UNPAGED_OBJS}
 SRCS+=	mpx.S arch_clock.c arch_do_vmctl.c arch_system.c do_padconf.c \
 	exception.c hw_intr.c klib.S memory.c pre_init.c \
 	protect.c direct_tty_utils.c arch_reset.c \
-	pg_utils.c phys_copy.S phys_memset.S exc.S
+	pg_utils.c fdt.c phys_copy.S phys_memset.S exc.S
 
 OBJS.kernel+=	${UNPAGED_OBJS}
 
