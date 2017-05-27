@@ -130,7 +130,7 @@ check2:
 	orr r3, r3, #ARM_VM_SECTION_USER
 	orr r3, r3, #ARM_VM_SECTION_DOMAIN
 1:
-	ldr r5, =0x3effffff //FIXME
+	ldr r5, =0x3effffff
 	cmp r7, r5
 	blo cached
 	ldr r2, =#ARM_VM_SECTION_DEVICE
@@ -154,7 +154,7 @@ setup:
 /* The first free entry in the page table is placed	*/
 /* in freepde.										*/
 /****************************************************/
-	ldr	r6, =0xf0400000 //FIXME
+	ldr	r6, =_kern_vir_base
 	mov r7, r9
 	add	r5, r4, r6, lsr #18
 
@@ -228,11 +228,10 @@ setup:
 
 	mov r2, r10
 	ldr	sp, =k_initial_stktop	/* make usable stack */
-
 	mov r3, #0
 	push {r3}
 	mov	fp, #0
-	push	{r3}	
+	push	{r2}	
 	bl _C_LABEL(pre_init)
 
 	ldr r4, =1384 // FIXME
@@ -240,15 +239,15 @@ setup:
 	ldr r5, =freepde
 	ldr r5, [r5]
 	str r5, [r3]
-
+	pop {r2}
 	/* Kernel is mapped high now and ready to go, with
 	 * the boot info pointer returned by pre_init in r0.
 	 * Set the highly mapped stack and initialize it.
 	 *
 	 * After that call kmain with r0 still pointing to boot info
 	 */
-	ldr	r2, =_C_LABEL(kmain)	/* r0 holds kinfo_t ptr */
-	bx	r2
+	ldr	r3, =_C_LABEL(kmain)	/* r0 holds kinfo_t ptr */
+	bx	r3
 
 	/* not reached */
 hang:

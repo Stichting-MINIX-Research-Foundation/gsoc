@@ -168,7 +168,6 @@ struct shortname2id
 	unsigned int id;
 };
 
-
 /* mapping from fields given by the bootloader to board id's */
 static struct shortname2id shortname2id[] = {
 	{.name = "BBXM",.id = BOARD_ID_BBXM},
@@ -176,6 +175,21 @@ static struct shortname2id shortname2id[] = {
 	{.name = "A335BNLT",.id = BOARD_ID_BBB},
 	{.name = "RPI_2_B",.id = BOARD_ID_RPI_2_B},
 	{.name = "RPI_3_B",.id = BOARD_ID_RPI_3_B},
+};
+
+struct longname2id
+{
+	const char name[40];
+	unsigned int id;
+};
+
+/* mapping from fields given by the device tree to board id's */
+static struct longname2id longname2id[] = {
+	{.name = "BBXM",.id = BOARD_ID_BBXM},
+	{.name = "A335BONE",.id = BOARD_ID_BBW},
+	{.name = "A335BNLT",.id = BOARD_ID_BBB},
+	{.name = "Raspberry Pi 2 Model B Rev 1.1",.id = BOARD_ID_RPI_2_B},
+	{.name = "Raspberry Pi 3 Model B Rev 1.2",.id = BOARD_ID_RPI_3_B},
 };
 
 struct board_id2name
@@ -213,6 +227,19 @@ get_board_id_by_short_name(const char *name)
 	for (x = 0; x < sizeof(shortname2id) / sizeof(shortname2id[0]); x++) {
 		if (strncmp(name, shortname2id[x].name, 15) == 0) {
 			return shortname2id[x].id;
+		}
+	}
+	return 0;
+}
+
+/* returns 0 if no board was found that match that id */
+static int
+get_board_id_by_long_name(const char *name)
+{
+	int x;
+	for (x = 0; x < sizeof(longname2id) / sizeof(longname2id[0]); x++) {
+		if (strncmp(name, longname2id[x].name, 15) == 0) {
+			return longname2id[x].id;
 		}
 	}
 	return 0;

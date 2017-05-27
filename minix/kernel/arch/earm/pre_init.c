@@ -16,9 +16,8 @@
 #include "bsp_table.h"
 #include "glo.h"
 #include <machine/multiboot.h>
-
 #include <libfdt.h>
-#include <libfdt_internal.h>
+#include "fdt.h"
 
 #if USE_SYSDEBUG
 #define MULTIBOOT_VERBOSE 1
@@ -39,6 +38,8 @@ int kernel_may_alloc = 1;
 /* kernel bss */
 extern u32_t _edata;
 extern u32_t _end;
+
+extern void *dev_tree;
 
 #define BSP_TABLE_GENERATE(name) \
 	do { \
@@ -416,43 +417,6 @@ void set_bsp_table()
 	bsp_tb = &platform_tb;
 }
 
-static void test_node(const void *fdt, int parent_offset)
-{
-	uint32_t subnodes;
-	const fdt32_t *prop;
-	int offset;
-	int count;
-	int len;
-	/* This property indicates the number of subnodes to expect */
-	prop = fdt_getprop(fdt, parent_offset, "subnodes", &len);
-	if (!prop || len != sizeof(fdt32_t)) {
-		printf("Missing/invalid subnodes property at '%s'",
-		fdt_get_name(fdt, parent_offset, NULL));
-	}
-	subnodes = fdt32_to_cpu(*prop);
-	count = 0;
-	fdt_for_each_subnode(offset, fdt, parent_offset)
-	count++;
-	if (count != subnodes) {
-		printf("Node '%s': Expected %d subnodes, got %d\n",
-	    	fdt_get_name(fdt, parent_offset, NULL), subnodes, count);
-	}
-}
-
-void parse_dev_tree(const void *dev_tree)
-{
-	uint32_t offset;
-	uint32_t len;
-	if (!fdt_check_header(dev_tree)) {
-		printf("BAD HEADER\n");
-		return;
-	}
-	int node;
-	fdt_for_each_subnode(node, dev_tree, 0) {
-		test_node(dev_tree, node);
-	}
-}
-
 void read_tsc_64(u64_t * t) 
 {
 	bsp_tb->read_tsc_64(t);
@@ -471,9 +435,7 @@ int intr_init(const int auto_eoi)
 kinfo_t *pre_init(int argc, char **argv)
 {
 	char* bootargs;
-
-	void* dev_tree;
-	asm volatile ("ldr %0, [%%r2]":"=r"(dev_tree)::"r2", "memory");
+	asm volatile ("mov %0, r2":"=r"(dev_tree)::"r2", "memory");
 
 	/* This is the main "c" entry point into the kernel. It gets called
 	from head.S */
@@ -486,8 +448,11 @@ kinfo_t *pre_init(int argc, char **argv)
 		POORMANS_FAILURE_NOTIFICATION;
 	}
 
-	bootargs = argv[1];
-	set_machine_id(bootargs);
+	if (fdt_step_node(dev_tree, fdt_set_machine_type, &machine)) {
+		bootargs = argv[1];
+		set_machine_id(bootargs);
+	}
+
 	set_bsp_table();
 
 	/* Get our own copy boot params pointed to by r1.
