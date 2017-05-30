@@ -23,48 +23,29 @@
 #define PL011_RXRIS	0x10
 #define PL011_TXRIS	0x20
 
+/* Flag Register bits */
 #define PL011_RXFE	0x10
 #define PL011_TXFF	0x20
+#define PL011_TXFE	0x80
+#define PL011_CTS   0x00
 
-#define PL011_FEN	0x10
-
-/* Line Control Register bits */
-// #define PL011_LCR_PEN	0x01	/* Enable parity */
-
-// #define PL011_LCR_WLEN5		0x00	/* Wordlength 5 bits */   //TODO How to know the offset? 0x05
-// #define PL011_LCR_WLEN6		0x01	/* Wordlength 6 bits */
-// #define PL011_LCR_WLEN7		0x02	/* Wordlength 7 bits */
-// #define PL011_LCR_WLEN8		0x03	/* Wordlength 8 bits */
 
 // Send break. If this bit is set to 1, a low-level is continually output on the UARTTXD output, after
 // completing transmission of the current character. For the proper execution of the break command, the
 // software must set this bit for at least two complete frames.
 // For normal use, this bit must be cleared to 0
-// #define PL011_LCR_BRK		0x00
-
-
 
 /* Line Control Register bits */
-// #define UART_LCR_DLAB		0x80	/* Divisor latch access bit */
-
-// #define UART_LCR_SBC		0x40	/* Set break control */
-
-// #define UART_LCR_EPAR		0x10	/* Even parity select */
-
-// #define UART_LCR_PARITY		0x08	/* Enable parity */
-
-// #define UART_LCR_STOP		0x04	/* Stop bits; 0=1 bit, 1=2 bits */
-
-// #define UART_LCR_WLEN5		0x00	/* Wordlength 5 bits */
-// #define UART_LCR_WLEN6		0x01	/* Wordlength 6 bits */
-// #define UART_LCR_WLEN7		0x02	/* Wordlength 7 bits */
-// #define UART_LCR_WLEN8		0x03	/* Wordlength 8 bits */
-
-// #define UART_LCR_CONF_MODE_A	UART_LCR_DLAB	/* Configuration Mode A */
-// #define UART_LCR_CONF_MODE_B	0xBF		/* Configuration Mode B */
-
-
-
+#define PL011_LCR_BRK		0x00 	/* Send break */
+#define PL011_LCR_EPS 		0x04 	/* Even parity select */
+#define PL011_LCR_SPS 		0x80 	/* Stick parity select */
+#define PL011_LCR_FEN		0x10 	/* Enable FIFO */
+#define PL011_LCR_PARITY	0x02	/* Enable parity */
+#define PL011_LCR_STP2		0x08	/* Stop bits; 0=1 bit, 1=2 bits */
+#define PL011_LCR_WLEN5		0x00	/* Wordlength 5 bits */
+#define PL011_LCR_WLEN6		0x20	/* Wordlength 6 bits */
+#define PL011_LCR_WLEN7		0x40	/* Wordlength 7 bits */
+#define PL011_LCR_WLEN8		0x60	/* Wordlength 8 bits */
 
 //// PL011_IMSC   /* Interrupt mask set/clear register */
 //// UARTIMSC

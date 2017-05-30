@@ -448,10 +448,11 @@ kinfo_t *pre_init(int argc, char **argv)
 		POORMANS_FAILURE_NOTIFICATION;
 	}
 
-	if (fdt_step_node(dev_tree, fdt_set_machine_type, &machine)) {
-		bootargs = argv[1];
-		set_machine_id(bootargs);
-	}
+	if (fdt_step_node(dev_tree, fdt_set_machine_type, &machine))
+		POORMANS_FAILURE_NOTIFICATION;
+	
+	bootargs = argv[1];
+	set_machine_id(bootargs);
 
 	set_bsp_table();
 
