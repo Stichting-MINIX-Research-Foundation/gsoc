@@ -134,10 +134,7 @@ void kmain(kinfo_t *local_cbi)
    /* We have done this exercise in pre_init so we expect this code
       to simply work! */
    machine.board_id = get_board_id_by_name(env_get(BOARDVARNAME));
-#ifdef __arm__
-  /* We want to initialize serial before we do any output */
-  arch_ser_init();
-#endif
+
   /* We can talk now */
   DEBUGBASIC(("MINIX booting\n"));
 
@@ -148,6 +145,11 @@ void kmain(kinfo_t *local_cbi)
   memcpy(kinfo.boot_procs, image, sizeof(kinfo.boot_procs));
 
   cstart();
+
+#ifdef __arm__
+  /* We want to initialize serial before we do any output */
+  arch_ser_init();
+#endif
 
   BKL_LOCK();
  

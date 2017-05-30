@@ -146,6 +146,11 @@ serial_out(rs232_t *rs, int offset, int val)
 static void
 rs_reset(rs232_t *rs)
 {
+	unsigned int fr;
+
+	fr = PL011_RXFE | PL011_TXFE | PL011_CTS;
+
+	serial_out(rs, PL011_FR, fr);
 }
 
 static int
@@ -267,13 +272,16 @@ rs_ioctl(tty_t *tp, int UNUSED(dummy))
 
 static void rs_config(rs232_t *rs)
 {
+	unsigned int lcr;
+	tty_t *tp = rs->tty;
+
 	rs->ostate = ODEVREADY | ORAW | OSWREADY;	/* reads MSR */
 
 	/*
 	 * XXX: Disable FIFO otherwise only half of every received character
 	 * will trigger an interrupt.
 	 */
-	serial_out(rs, PL011_LCR_H, serial_in(rs, PL011_LCR_H) & ~PL011_FEN);
+	serial_out(rs, PL011_LCR_H, serial_in(rs, PL011_LCR_H) & (~PL011_LCR_FEN));
 	/* Set interrupt levels */
 	serial_out(rs, PL011_IFLS, 0x0);
 
