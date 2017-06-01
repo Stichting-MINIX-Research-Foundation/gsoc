@@ -119,7 +119,6 @@ dtoverlay=pi3-disable-bt
 device_tree=bcm2709-rpi-2-b.dtb
 
 [all]
-device_tree_address=0x100
 kernel=minix_rpi.bin
 EOF
 
