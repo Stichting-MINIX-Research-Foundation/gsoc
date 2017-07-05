@@ -94,6 +94,8 @@ dir.acpi:=	minix/drivers/power/acpi
 .if ${MACHINE_ARCH} == "earm"
 PROGRAMS+=		mmc
 dir.mmc:=	minix/drivers/storage/mmc
+PROGRAMS+=		mailbox
+dir.mailbox:=	minix/drivers/system/mailbox
 .endif # ${MACHINE_ARCH} == "earm"
 
 .if ${LDSTATIC} == "-dynamic"

@@ -29,6 +29,7 @@ d--755 0 0
 #endif
 #ifdef __arm__
 		mmc ---755 0 0 mmc
+		mailbox ---755 0 0 mailbox
 #endif
 		mfs ---755 0 0 mfs
 		procfs ---755 0 0 procfs

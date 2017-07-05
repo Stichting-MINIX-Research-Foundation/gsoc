@@ -6,5 +6,6 @@ SUBDIR+=	gpio
 
 SUBDIR+=	log
 SUBDIR+=	random
+SUBDIR+=	mailbox
 
 .include <bsd.subdir.mk>

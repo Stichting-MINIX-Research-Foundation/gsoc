@@ -21,6 +21,7 @@
 ./service/gpio                                          minix-base
 ./service/i2c                                           minix-base
 ./service/lan8710a                                      minix-base
+./service/mailbox                                       minix-base
 ./service/mmc                                           minix-base
 ./service/random                                        minix-base
 ./service/sht21                                         minix-base
