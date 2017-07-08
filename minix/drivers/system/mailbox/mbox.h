@@ -36,6 +36,7 @@ void mbox_write(uint8_t chan, uint32_t data);
 
 void mbox_flush();
 
+#define IRQ_EN 			(0x1 << 0)
 
 #define MAILBOX_FULL				0x80000000
 #define MAILBOX_EMPTY				0x40000000

@@ -37,14 +37,13 @@ static struct log log = {
 static void write32(vir_bytes reg, uint32_t data)
 {
 	assert(reg >= 0 && reg <= sizeof (struct mailbox_t));
-	uint32_t addr = mbox_base + reg;
-	addr = data;
+	*(volatile uint32_t *)(mbox_base + reg) = data;
 }
 
 static uint32_t read32(vir_bytes reg)
 {
 	assert(reg >= 0 && reg <= sizeof (struct mailbox_t));
-	return mbox_base + reg;
+	return *(volatile uint32_t *)(mbox_base + reg);
 }
 
 void mailbox_init()
@@ -54,7 +53,7 @@ void mailbox_init()
 	struct minix_mem_range mr;
 
 	mr.mr_base = MBOX_BASE;
-	mr.mr_limit = MBOX_BASE + sizeof (struct mailbox_t);
+	mr.mr_limit = MBOX_BASE + 0x1000;
 
 	/* grant ourself rights to map the register memory */
 	if (sys_privctl(SELF, SYS_PRIV_ADD_MEM, &mr) != 0) {
@@ -64,22 +63,24 @@ void mailbox_init()
 	/* Set the base address to use */
 	mbox_base =
 	    (uint32_t) vm_map_phys(SELF, (void *) MBOX_BASE,
-	    sizeof (struct mailbox_t));
+	    0x1000);
 
 	if (mbox_base == (uint32_t) MAP_FAILED)
 		panic("Unable to map MMC memory");
 
 	gmailbox = &mailbox;
+
+	write32(gmailbox->config, IRQ_EN);
 }
 
 uint32_t mbox_read(uint8_t chan)
 {
 	uint32_t data = 0;
 	while (1) {
-		while (read32(gmailbox->status) & MAILBOX_EMPTY) {
+		while (read32(gmailbox->status) & MAILBOX_EMPTY)
 			log_debug(&log, "status: 0x%x\n", read32(gmailbox->status));
-			//mem barrier
-		}
+
+		log_debug(&log, "0x%08x\n", read32(gmailbox->status));
 		data = read32(gmailbox->read);
 
 		log_debug(&log, "received data %d\n", data);
@@ -92,7 +93,7 @@ uint32_t mbox_read(uint8_t chan)
 
 void mbox_write(uint8_t chan, uint32_t data)
 {
-	while (read32(gmailbox->status) & MAILBOX_FULL) ;
+	while (read32(gmailbox->status) & MAILBOX_FULL);
 
 	write32(gmailbox->write, (data & ~0xf) | (uint32_t) (chan & 0xf));
 }

@@ -26,6 +26,7 @@ RAMDISK_DEVICES="
 	c1d4 c1d4p0 c1d4p0s0 c1d5 c1d5p0 c1d5p0s0
 	c1d6 c1d6p0 c1d6p0s0 c1d7 c1d7p0 c1d7p0s0
 	fd0 fd1 fd0p0 fd1p0
+	mailbox
 	pci
 	ttyc1 ttyc2 ttyc3 tty00 tty01 tty02 tty03
 "
@@ -138,6 +139,7 @@ Where key is one of the following:
   filter                  # Make /dev/filter
   fbd                     # Make /dev/fbd
   hello                   # Make /dev/hello
+  mailbox                 # Make /dev/mailbox
   video                   # Make /dev/video
   pci                     # Make /dev/pci
   vnd0 vnd0p0 vnd0p0s0 .. # Make vnode disks /dev/vnd[0-7] and (sub)partitions
@@ -353,6 +355,9 @@ do
 	klog)
 		# Logging device.
 		makedev ${dev} c 15 0 ${uname} ${gname} ${permissions}
+		;;
+	mailbox)
+		makedev ${dev} c 22 0 ${uname} ${gname} 0666
 		;;
 	pc[0-3]|at[0-3]|qd[0-3]|ps[0-3]|pat[0-3]|qh[0-3]|PS[0-3])
 		# Obsolete density locked floppy disk drive n.

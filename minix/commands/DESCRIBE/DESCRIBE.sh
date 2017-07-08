@@ -220,6 +220,9 @@ do
 	des="keyboard input $n"
 	dev=kbd$n
 	;;
+	15,0)
+	dev=mailbox
+	;;
     64,64)
 	des="mouse input multiplexer"
 	dev=mousemux

@@ -2,9 +2,8 @@
 PROG=	mailbox
 SRCS=	mbox.c main.c
 
-FILES=${PROG}.conf
 FILESNAME=${PROG}
-FILESDIR= /service
+FILESDIR= /etc/system.conf.d
 
 DPADD+=	${LIBCHARDRIVER} ${LIBSYS}
 LDADD+=	-lchardriver -lsys
