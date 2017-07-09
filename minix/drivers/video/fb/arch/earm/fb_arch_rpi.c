@@ -16,6 +16,13 @@
 #include <dev/videomode/videomode.h>
 #include <dev/videomode/edidvar.h>
 #include <dev/videomode/edidreg.h>
+
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "dss.h"
 #include "fb.h"
 
@@ -180,6 +187,10 @@ arch_configure_display(int minor)
 	if (!initialized) return;
 	if (minor != 0) return;
 
+	int fd = open("/dev/mailbox", O_RDWR, 0777);
+	if (fd < 0) 
+		panic("Unable to open mailbox device");
+
 	/* Fill mailbox property tags buffer */
 	mboxbuffer_vir[0] = 4096;
 	mboxbuffer_vir[1] = 0;
@@ -203,8 +214,8 @@ arch_configure_display(int minor)
 	mboxbuffer_vir[19] = 4096;
 	mboxbuffer_vir[20] = 0; /* end tag */
 
-	writemailbox(8, mboxbuffer_phys + 0x40000000);
-	readmailbox(8);
+	write(fd, mboxbuffer_vir, 4096);
+	read(fd, mboxbuffer_vir, 4096);
 
 	if (mboxbuffer_vir[1] != 0x80000000)
 		panic("Unable to configure framebuffer");
@@ -229,6 +240,7 @@ arch_configure_display(int minor)
 	if (fb_vir == (vir_bytes) MAP_FAILED) {
 		panic("Unable to map framebuffer memory");
 	}
+	close(fd);
 }
 
 int
@@ -296,7 +308,6 @@ arch_fb_init(int minor, struct edid_info *info)
 {
 	int r;
 	u32_t rdispc;
-	struct minix_mem_range mr;
 
 	if (minor != 0) return ENXIO;	/* We support only one minor */
 
@@ -308,26 +319,6 @@ arch_fb_init(int minor, struct edid_info *info)
 	}
 
 	initialized = 1;
-
-	/* Configure mailbox memory access */
-	mr.mr_base = MAILBOX_BASE;
-	mr.mr_limit = mr.mr_base + 0x1000;
-	if (sys_privctl(SELF, SYS_PRIV_ADD_MEM, &mr) != OK) {
-		panic("Unable to request access to mailbox memory");
-	}
-
-	mbox_phys_base = (vir_bytes) vm_map_phys(SELF, (void *) MAILBOX_BASE,
-						0x1000);
-
-	if (mbox_phys_base == (vir_bytes) MAP_FAILED) {
-		panic("Unable to map mailbox memory");
-	}
-
-	/* Configure mailbox buffer */
-	mboxbuffer_vir = (u32_t*) alloc_contig(0x1000, 0, &mboxbuffer_phys);
-	if (mboxbuffer_vir == (u32_t*) MAP_FAILED) {
-		panic("Unable to allocate contiguous memory for mailbox buffer\n");
-	}
 
 	/* Configure buffer settings and turn on LCD/Digital */
 	arch_configure_display(minor);

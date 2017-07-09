@@ -183,17 +183,7 @@ static ssize_t m_write(devminor_t minor, u64_t position, endpoint_t endpt,
 	if (wait_irq() < 0) {
 		log_warn(&log, "can't wait interrupt from mbox\n");
 		return(ETIME);
-	} else {
-		buf = (int8_t *)mbox_read(MBOX_PROP);
-		r = sys_safecopyto(endpt, grant, 0, (vir_bytes)buf, *(int *)msg);
-		if (r != OK) {
-			log_warn(&log, "mailbox: sys_safecopyto failed for proc %d, grant %d\n",
-				endpt, grant);
-			return r;
-		}
 	}
-
-	mbox_flush();
 
 	return(OK);
 }
