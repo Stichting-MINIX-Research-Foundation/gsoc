@@ -140,6 +140,7 @@ static void sef_local_startup(void);
 static int sef_cb_init_fresh(int type, sef_init_info_t *info);
 static void sef_cb_signal_handler(int signo);
 
+#define SANE_TIMEOUT 100000	/* 100 ms */
 /*===========================================================================*
  *				tty_task				     *
  *===========================================================================*/
@@ -155,7 +156,13 @@ int main(void)
 
   /* SEF local startup. */
   sef_local_startup();
+  int ticks = SANE_TIMEOUT * sys_hz() / 1000000;
+
+  if (ticks <= 0)
+	ticks = 1;
+  
   while (TRUE) {
+	sys_setalarm(ticks, 0);
 	/* Check for and handle any events on any of the ttys. */
 	for (tp = FIRST_TTY; tp < END_TTY; tp++) {
 		if (tp->tty_events) handle_events(tp);
@@ -178,26 +185,27 @@ int main(void)
 
 	if (is_ipc_notify(ipc_status)) {
 		switch (_ENDPOINT_P(tty_mess.m_source)) {
-			case CLOCK:
-				/* run watchdogs of expired timers */
-				expire_timers(tty_mess.m_notify.timestamp);
-				break;
-			case HARDWARE: 
-				/* hardware interrupt notification */
+		case CLOCK:
+			/* run watchdogs of expired timers */
+			rs_interrupt(&tty_mess);
+			expire_timers(tty_mess.m_notify.timestamp);
+			break;
+		case HARDWARE: 
+			/* hardware interrupt notification */
 
 #if NR_RS_LINES > 0
-				/* serial I/O */
-				if (tty_mess.m_notify.interrupts & rs_irq_set)
-					rs_interrupt(&tty_mess);
+			/* serial I/O */
+			if (tty_mess.m_notify.interrupts & rs_irq_set)
+				rs_interrupt(&tty_mess);
 #endif
-				/* run watchdogs of expired timers */
-				expire_timers(tty_mess.m_notify.timestamp);
-				break;
-			default:
-				/* do nothing */
-				break;
+			/* run watchdogs of expired timers */
+			expire_timers(tty_mess.m_notify.timestamp);
+			break;
+		default:
+			/* do nothing */
+			break;
 		}
-
+		sys_setalarm(0, 0);
 		/* done, get new message */
 		continue;
 	}

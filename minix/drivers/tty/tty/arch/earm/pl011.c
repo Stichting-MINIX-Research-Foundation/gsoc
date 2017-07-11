@@ -281,7 +281,7 @@ static void rs_config(rs232_t *rs)
 	 * XXX: Disable FIFO otherwise only half of every received character
 	 * will trigger an interrupt.
 	 */
-	serial_out(rs, PL011_LCR_H, serial_in(rs, PL011_LCR_H) & (~PL011_LCR_FEN));
+	serial_out(rs, PL011_LCR_H, serial_in(rs, PL011_LCR_H) | PL011_LCR_FEN);
 	/* Set interrupt levels */
 	serial_out(rs, PL011_IFLS, 0x0);
 
@@ -398,14 +398,29 @@ rs_interrupt(message *m)
 	int line;
 	rs232_t *rs;
 
-	irq_set = m->m_notify.interrupts;
-	for (line = 0, rs = rs_lines; line < NR_RS_LINES; line++, rs++) {
-		if ((irq_set & (1 << rs->irq_hook_id)) && (rs->phys_base != 0)) {
-			rs232_handler(rs);
-			if (sys_irqenable(&rs->irq_hook_kernel_id) != OK)
-				panic("unable to enable interrupts");
-		}
-	}
+	switch (_ENDPOINT_P(m->m_source)) {
+		case CLOCK:
+			for (line = 0, rs = rs_lines; line < NR_RS_LINES; line++, rs++) {
+				if (rs->phys_base != 0) {
+					if ((serial_in(rs, PL011_FR) & PL011_RXFE) == 0) {
+						read_chars(rs);
+					}
+					if (sys_irqenable(&rs->irq_hook_kernel_id) != OK)
+						panic("unable to enable interrupts");
+				}
+			}
+			break;
+		case HARDWARE: 
+			irq_set = m->m_notify.interrupts;
+			for (line = 0, rs = rs_lines; line < NR_RS_LINES; line++, rs++) {
+				if ((irq_set & (1 << rs->irq_hook_id)) && (rs->phys_base != 0)) {
+					rs232_handler(rs);
+					if (sys_irqenable(&rs->irq_hook_kernel_id) != OK)
+						panic("unable to enable interrupts");
+				}
+			}
+			break;
+	}	
 }
 
 static int
