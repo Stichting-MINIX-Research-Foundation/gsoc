@@ -51,10 +51,10 @@ typedef struct rs232 {
 #define ODONE          1	/* output completed (< output enable bits) */
 #define ORAW           2	/* raw mode for xoff disable (< enab. bits) */
 #define OWAKEUP        4	/* tty_wakeup() pending (asm code only) */
-#define ODEVREADY UART_MSR_CTS	/* external device hardware ready (CTS) */
+#define ODEVREADY PL011_FR_CTS	/* external device hardware ready (CTS) */
 #define OQUEUED     0x20	/* output buffer not empty */
 #define OSWREADY    0x40	/* external device software ready (no xoff) */
-#define ODEVHUP  UART_MSR_DCD	/* external device has dropped carrier */
+#define ODEVHUP  	0x80	/* external device has dropped carrier */
 #define OSOFTBITS  (ODONE | ORAW | OWAKEUP | OQUEUED | OSWREADY)
 				/* user-defined bits */
 #if (OSOFTBITS | ODEVREADY | ODEVHUP) == OSOFTBITS
@@ -148,7 +148,7 @@ rs_reset(rs232_t *rs)
 {
 	unsigned int fr;
 
-	fr = PL011_RXFE | PL011_TXFE | PL011_CTS;
+	fr = PL011_FR_RXFE | PL011_FR_TXFE | PL011_FR_CTS;
 
 	serial_out(rs, PL011_FR, fr);
 }
@@ -276,12 +276,10 @@ static void rs_config(rs232_t *rs)
 	tty_t *tp = rs->tty;
 
 	rs->ostate = ODEVREADY | ORAW | OSWREADY;	/* reads MSR */
-
-	/*
-	 * XXX: Disable FIFO otherwise only half of every received character
-	 * will trigger an interrupt.
-	 */
+	/* Enable FIFO */
 	serial_out(rs, PL011_LCR_H, serial_in(rs, PL011_LCR_H) | PL011_LCR_FEN);
+	/* Set level of FIFO filling in */
+	serial_out(rs, PL011_IFLS, PL011_IFLS_TXIFLSEL12 | PL011_IFLS_RXIFLSEL12);
 	/* Set interrupt levels */
 	serial_out(rs, PL011_IFLS, 0x0);
 
@@ -388,7 +386,7 @@ rs_init(tty_t *tp)
 	tp->tty_open = rs_open;
 	tp->tty_close = rs_close;
 
-	serial_out(rs, PL011_IMSC, PL011_RXRIS);
+	serial_out(rs, PL011_IMSC, PL011_RIS_RXRIS);
 }
 
 void
@@ -402,7 +400,7 @@ rs_interrupt(message *m)
 		case CLOCK:
 			for (line = 0, rs = rs_lines; line < NR_RS_LINES; line++, rs++) {
 				if (rs->phys_base != 0) {
-					if ((serial_in(rs, PL011_FR) & PL011_RXFE) == 0) {
+					if ((serial_in(rs, PL011_FR) & PL011_FR_RXFE) == 0) {
 						read_chars(rs);
 					}
 					if (sys_irqenable(&rs->irq_hook_kernel_id) != OK)
@@ -488,7 +486,7 @@ rs_ostart(rs232_t *rs)
 	rs->ostate |= OQUEUED;
 	write_chars(rs);
 
-	serial_out(rs, PL011_IMSC, PL011_TXRIS|PL011_RXRIS);
+	serial_out(rs, PL011_IMSC, PL011_RIS_TXRIS | PL011_RIS_RXRIS);
 }
 
 static int
@@ -530,12 +528,12 @@ rs232_handler(struct rs232 *rs)
 
 	ris = serial_in(rs, PL011_RIS);
 
-	if (ris & PL011_RXRIS) {
+	if (ris & PL011_RIS_RXRIS) {
 		/* Data ready interrupt */
 		read_chars(rs);
 	}
 	rs->ostate |= ODEVREADY;
-	if (ris & PL011_TXRIS) {
+	if (ris & PL011_RIS_TXRIS) {
 		/* Ready to send and space available */
 		write_chars(rs);
 	}
@@ -549,7 +547,7 @@ read_chars(rs232_t *rs)
 	unsigned char c;
 
 	/* check the line status to know if there are more chars */
-	while ((serial_in(rs, PL011_FR) & PL011_RXFE) == 0) {
+	while ((serial_in(rs, PL011_FR) & PL011_FR_RXFE) == 0) {
 		c = serial_in(rs, PL011_DR);
 		if (!(rs->ostate & ORAW)) {
 			if (c == rs->oxoff) {
@@ -585,13 +583,13 @@ write_chars(rs232_t *rs)
 	 * known ready).
 	 * Notify TTY when the buffer goes empty.
 	 */
-	while ((rs->ostate >= (OQUEUED | OSWREADY)) && ((serial_in(rs, PL011_FR) & PL011_TXFF) == 0)) {
+	while ((rs->ostate >= (OQUEUED | OSWREADY)) && ((serial_in(rs, PL011_FR) & PL011_FR_TXFF) == 0)) {
 		/* Bit test allows ORAW and requires the others. */
 		serial_out(rs, PL011_DR, *rs->otail);
 		if (++rs->otail == bufend(rs->obuf))
 			rs->otail = rs->obuf;
 		if (--rs->ocount == 0) {
-			serial_out(rs, PL011_IMSC, PL011_RXRIS);
+			serial_out(rs, PL011_IMSC, PL011_RIS_RXRIS);
 			/* Turn on ODONE flag, turn off OQUEUED */
 			rs->ostate ^= (ODONE | OQUEUED);
 			rs->tty->tty_events = 1;
