@@ -21,6 +21,7 @@
 
 /* SoC specific headers - 1 for each SoC */
 #include "omap_i2c.h"
+#include "rpi_i2c.h"
 
 /* local definitions */
 
