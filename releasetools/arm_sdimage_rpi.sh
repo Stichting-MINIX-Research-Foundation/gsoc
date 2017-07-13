@@ -121,6 +121,8 @@ device_tree=bcm2709-rpi-2-b.dtb
 [all]
 device_tree_address=0x100
 kernel=minix_rpi.bin
+
+dtparam=i2c_arm=on
 EOF
 
 ${CROSS_TOOLS}/nbmakefs -t msdos -s $FAT_SIZE -O $FAT_START -o "F=32,c=1" ${IMG} ${ROOT_DIR} >/dev/null

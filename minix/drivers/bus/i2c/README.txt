@@ -14,11 +14,17 @@ Organization and Layout
 -----------------------
 
 i2c.c					generic i2c bus driver
+i2c.conf				configuration for the i2c driver	
 arch/					arch specific code
 	earm/				earm specific code
-		omap_i2c.c		AM335X/DM37XX i2c bus driver	
-		omap_i2c.h		AM335X/DM37XX function prototypes
-		omap_i2c_registers.h 	AM335X/DM37XX register offsets, etc.
+		omap/
+			omap_i2c.c				AM335X/DM37XX i2c bus driver	
+			omap_i2c.h				AM335X/DM37XX function prototypes
+			omap_i2c_registers.h 	AM335X/DM37XX register offsets, etc.
+		rpi/
+			rpi_i2c.c				BCM283X i2c bus driver	
+			rpi_i2c.h				BCM283X function prototypes
+			rpi_i2c_registers.h 	BCM283X register offsets, etc.
 
 Testing the Code
 ----------------
@@ -62,3 +68,17 @@ Minix i2c device drivers. It shows how to use the i2cdriver library and
 how to use the bus for reads and writes. commands/eepromread is another
 place to look if you're interested in accessing devices through the /dev
 interface.
+
+Developing I2C Drivers For The New Arm Platform
+-------------------------------------------
+
+1) Create the directory "your_platform" in the arch/earm
+2) Your driver has to implement "int your_platform_interface_setup
+(int (**process)(minix_i2c_ioctl_exec_t *ioctl_exec), int i2c_bus_id);", 
+which is called by the general i2c driver for control platform dependent
+functions. See previous realizations for more examples.
+3) Your files have to named your_platform_i2c.c your_platform_i2c.h
+your_platform_i2c_registers.h
+4) Add your platform name in the Makefile directories list.
+5) Include "your_platform_i2c.h" in the i2c.c.
+6) Add else/if section in the i2c.c in the sef_cb_init function.
