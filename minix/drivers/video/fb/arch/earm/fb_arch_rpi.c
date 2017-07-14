@@ -50,20 +50,10 @@ struct supported_modes {
 static struct videomode *choose_mode(struct edid_info *info);
 static void configure_with_defaults(int minor);
 
-/* globals */
-static vir_bytes mbox_phys_base;	/* Address of dss phys memory map */
-static u32_t* mboxbuffer_vir;	/* Address of dss phys memory map */
-static phys_bytes mboxbuffer_phys;	/* Address of dss phys memory map */
-
 static vir_bytes fb_vir;
 static phys_bytes fb_phys;
 static size_t fb_size;
 static int initialized = 0;
-
-#define MAILBOX_BASE     0x3f00b000
-#define MAILBOX0_READ    0x880
-#define MAILBOX0_STATUS  0x898
-#define MAILBOX0_WRITE   0x8a0
 
 struct panel_config {
 	u32_t timing_h;
@@ -139,30 +129,6 @@ writew(vir_bytes addr, u32_t val)
 	*((volatile u32_t *) addr) = val;
 }
 
-static u32_t readmailbox(unsigned channel)
-{
-	u32_t data;
-
-	while (1) {
-		while(readw(mbox_phys_base+MAILBOX0_STATUS) & 0x40000000);
-
-		asm volatile("dmb" : : : "memory");
-		data = readw(mbox_phys_base+MAILBOX0_READ);
-		asm volatile("dmb" : : : "memory");
-
-		if ((data & 15) == channel)
-			return data;
-	}
-}
-
-static void writemailbox(unsigned channel, u32_t data)
-{
-	while(readw(mbox_phys_base+MAILBOX0_STATUS) & 0x80000000);
-
-	asm volatile("dmb" : : : "memory");
-	writew(mbox_phys_base+MAILBOX0_WRITE, data | channel);
-}
-
 static void
 configure_with_defaults(int minor)
 {
@@ -187,7 +153,9 @@ arch_configure_display(int minor)
 	if (!initialized) return;
 	if (minor != 0) return;
 
-	int fd = open("/dev/mailbox", O_RDWR, 0777);
+	uint32_t mboxbuffer_vir[1024];
+	
+	int fd = open("/dev/mailbox", O_RDWR);
 	if (fd < 0) 
 		panic("Unable to open mailbox device");
 
