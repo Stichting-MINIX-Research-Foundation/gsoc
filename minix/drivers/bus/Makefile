@@ -7,6 +7,7 @@ SUBDIR+=	ti1225
 
 .  if ${MACHINE_ARCH} == "earm"
 SUBDIR+=	i2c
+SUBDIR+=	spi
 .  endif # ${MACHINE_ARCH} == "earm"
 .endif # ${MKIMAGEONLY} == "no"
 
