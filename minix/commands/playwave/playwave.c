@@ -71,14 +71,14 @@ int open_audio(unsigned int *fragment_size, unsigned int channels,
 {
   unsigned int sign;
   int audio;
-
+printf ("before open\n");
   /* Open DSP */
   if ((audio = open("/dev/audio", O_RDWR)) < 0)
   {
     printf("Cannot open /dev/audio: %s\n", strerror(errno));
     exit(-1);
   }
-
+printf ("before ioctl\n");
   ioctl(audio, DSPIOMAX, fragment_size); /* Get maximum fragment size. */
 
   /* Set DSP parameters (should check return values..) */
@@ -145,7 +145,7 @@ int main ( int argc, char *argv[] )
     printf("%s not in MicroSoft PCM format\n", file_name);
     exit(1);
   }
-
+printf ("before open audio\n");
   /* Open audio device and set DSP parameters */
   audio = open_audio(&fragment_size, c_fields.Channels - 1,
 	c_fields.SamplesPerSec, s_fields.BitsPerSample);
@@ -199,7 +199,7 @@ int main ( int argc, char *argv[] )
         buffer[i] = buffer[(int)data_len-1];
       data_len = 0;
     }
-
+printf ("before write\n");
     /* Copy data to DSP */
     r= write(audio, buffer,  fragment_size);
     if (r != fragment_size)

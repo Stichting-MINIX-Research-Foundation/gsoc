@@ -6,4 +6,7 @@ SUBDIR+=	es1371
 SUBDIR+=	sb16
 .endif # ${MACHINE_ARCH} == "i386"
 
+.if ${MACHINE_ARCH} == "earm"
+SUBDIR+=	pcm
+.endif # ${MACHINE_ARCH} == "earm"
 .include <bsd.subdir.mk>
