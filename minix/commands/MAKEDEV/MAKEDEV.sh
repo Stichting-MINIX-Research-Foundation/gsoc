@@ -26,7 +26,6 @@ RAMDISK_DEVICES="
 	c1d4 c1d4p0 c1d4p0s0 c1d5 c1d5p0 c1d5p0s0
 	c1d6 c1d6p0 c1d6p0s0 c1d7 c1d7p0 c1d7p0s0
 	fd0 fd1 fd0p0 fd1p0
-	mailbox
 	pci
 	ttyc1 ttyc2 ttyc3 tty00 tty01 tty02 tty03
 "
@@ -44,7 +43,9 @@ STD_DEVICES="
 	eth fb0 fbd filter hello
 	i2c-1 i2c-2 i2c-3
 	klog ptmx random
+	mailbox
 	sht21b1s40 sht21b2s40 sht21b3s40
+	spi-1 spi-2 spi-3
 	tsl2550b1s39 tsl2550b2s39 tsl2550b3s39
 	ttyp0 ttyp1 ttyp2 ttyp3 ttyp4 ttyp5 ttyp6 ttyp7 ttyp8 ttyp9
 	ttypa ttypb ttypc ttypd ttype ttypf
@@ -116,6 +117,7 @@ Where key is one of the following:
   ram mem kmem null boot zero	  # One of these makes all these memory devices
   fb0			  # Make /dev/fb0
   i2c-1 i2c-2 i2c-3       # Make /dev/i2c-[1-3]
+  spi-1 spi-2 spi-3       # Make /dev/spi-[1-3]
   tsl2550b{1,3}s39	  # TSL2550 Ambient Light Sensors
   sht21b{1,3}s40	  # SHT21 Relative Humidity and Temperature Sensors
   bmp085b{1,3}s77	  # BMP085 Pressure and Temperature Sensors
@@ -407,6 +409,14 @@ do
 		major=`expr ${bus} + 49`
 
 		makedev sht21b${bus}s40 c ${major} 0 ${uname} ${gname} 444
+		;;
+	spi-[1-3])
+		bus=`expr ${dev} : '....\\(.*\\)'` # bus number
+		# least significant digit of major
+		major_low=`expr ${dev} : '....\\(.*\\)'`
+		major_low=`expr ${major_low} - 1`
+
+		makedev "spi-${bus}" c 3${major_low} 0 ${uname} ${gname} ${permissions}
 		;;
 	tsl2550b[1-3]s39)
 		# Weather Cape: ambient light sensor

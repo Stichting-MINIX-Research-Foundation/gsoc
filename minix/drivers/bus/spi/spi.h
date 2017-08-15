@@ -5,8 +5,7 @@
 #define SPI_REG_SIZE	0x100
 
 #define SPI_IRQ			48
-
-#define SPI_SPEED3DOT9	64
+#define SPI_DEF_SPEED	250000000
 
 #define SPI_CS			0x0
 #define SPI_FIFO		0x4

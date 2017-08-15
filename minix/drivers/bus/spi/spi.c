@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <minix/padconf.h>
 
 #include <inttypes.h>
@@ -26,6 +27,9 @@ static ssize_t spi_read(devminor_t minor, u64_t position, endpoint_t endpt,
 	cp_grant_id_t grant, size_t size, int flags, cdev_id_t id);
 static ssize_t spi_write(devminor_t minor, u64_t position, endpoint_t endpt,
 	cp_grant_id_t grant, size_t size, int flags, cdev_id_t id);
+static int spi_ioctl(devminor_t UNUSED(minor), unsigned long request, endpoint_t endpt,
+	cp_grant_id_t grant, int UNUSED(flags), endpoint_t UNUSED(user_endpt),
+	cdev_id_t UNUSED(id));
 
 #define COPYBUF_SIZE 0x1000	/* 4k buff */
 static unsigned char copybuf[COPYBUF_SIZE];
@@ -36,6 +40,11 @@ static int sef_cb_init(int type, sef_init_info_t *info);
 static int sef_cb_lu_state_save(int, int);
 static int lu_state_restore(void);
 
+static char io_ctl_buf[IOCPARM_MASK];
+
+static int spi_set_mode(unsigned int mode);
+static int spi_set_speed(unsigned int speed);
+
 /* Entry points to the spi driver. */
 static struct chardriver spi_tab =
 {
@@ -43,6 +52,7 @@ static struct chardriver spi_tab =
 	.cdr_close	= spi_close,
 	.cdr_read	= spi_read,
 	.cdr_write  = spi_write,
+	.cdr_ioctl	= spi_ioctl,
 };
 
 typedef struct
@@ -66,22 +76,34 @@ static spi_regs_t spi_reg = {
 
 vir_bytes io_base;
 spi_regs_t *rpi_spi_bus;
+int spi_bus_id;
 
 /*
  * Define a structure to be used for logging
  */
 static struct log log = {
 	.name = "spi",
-	.log_level = LEVEL_DEBUG,
+	.log_level = LEVEL_INFO,
 	.log_func = default_log
 };
 
 #define	div_roundup(x, y) (((x)+((y)-1))/(y))
 
+#define roundup2pow(v) \
+	do { \
+    	v--; \
+    	v |= v >> 1; \
+    	v |= v >> 2; \
+    	v |= v >> 4; \
+    	v |= v >> 8; \
+    	v |= v >> 16; \
+    	v++; \
+	} while(0)
+
 static int spi_reset()
 {
 	/* Disable interrupts */
-	spi_set32(rpi_spi_bus->CS, SPI_CS_INTR | SPI_CS_INTD | SPI_CS_DMAEN | SPI_CS_TA, 0);
+	spi_set32(rpi_spi_bus->CS, SPI_CS_INTR | SPI_CS_INTD | SPI_CS_TA, 0);
 	/* Clear fifo */
 	spi_set32(rpi_spi_bus->CS, SPI_CS_RX_CLEAR | SPI_CS_TX_CLEAR, 
 		SPI_CS_RX_CLEAR | SPI_CS_TX_CLEAR);
@@ -94,26 +116,65 @@ static void spi_padconf()
 {
 	int r;
 	uint32_t pinopts;
-
-	pinopts = CONTROL_BCM_CONF_SPI0_MISO |
-		CONTROL_BCM_CONF_SPI0_CE1 | CONTROL_BCM_CONF_SPI0_CE0;
+	switch(spi_bus_id) {
+		case 0:
+			pinopts = CONTROL_BCM_CONF_SPI0_MISO |
+				CONTROL_BCM_CONF_SPI0_CE1 | CONTROL_BCM_CONF_SPI0_CE0;
 	
-	r = sys_padconf(GPFSEL09, pinopts,
-		pinopts);
-	if (r != OK) {
-		log_warn(&log, "padconf failed (r=%d)\n", r);
-	}
+			r = sys_padconf(GPFSEL09, pinopts,
+				pinopts);
+			if (r != OK) {
+				log_warn(&log, "sys_padconfnf failed (r=%d)\n", r);
+			}
 
-	log_debug(&log, "pinopts=0x%x\n", pinopts);
+			log_debug(&log, "pinopts=0x%x\n", pinopts);
 
-	pinopts = CONTROL_BCM_CONF_SPI0_MOSI | CONTROL_BCM_CONF_SPI0_SCLK;
-	r = sys_padconf(GPFSEL1019, pinopts,
-	    pinopts);
-	if (r != OK) {
-		log_warn(&log, "padconf failed (r=%d)\n", r);
-	}
+			pinopts = CONTROL_BCM_CONF_SPI0_MOSI | CONTROL_BCM_CONF_SPI0_SCLK;
+			r = sys_padconf(GPFSEL1019, pinopts,
+				pinopts);
+			if (r != OK) {
+				log_warn(&log, "padconf failed (r=%d)\n", r);
+			}
 	
-	log_debug(&log, "pinopts=0x%x\n", pinopts);
+			log_debug(&log, "pinopts=0x%x\n", pinopts);
+			break;
+		case 1:
+			pinopts = CONTROL_BCM_CONF_SPI1_MISO |
+				CONTROL_BCM_CONF_SPI1_CE1 | CONTROL_BCM_CONF_SPI1_CE0 |
+				CONTROL_BCM_CONF_SPI1_CE2;
+	
+			r = sys_padconf(GPFSEL1019, pinopts,
+				pinopts);
+			if (r != OK) {
+				log_warn(&log, "sys_padconfnf failed (r=%d)\n", r);
+			}
+
+			log_debug(&log, "pinopts=0x%x\n", pinopts);
+
+			pinopts = CONTROL_BCM_CONF_SPI1_MOSI | CONTROL_BCM_CONF_SPI1_SCLK;
+			r = sys_padconf(GPFSEL2029, pinopts,
+		    	pinopts);
+			if (r != OK) {
+				log_warn(&log, "padconf failed (r=%d)\n", r);
+			}
+	
+			log_debug(&log, "pinopts=0x%x\n", pinopts);
+			break;
+		case 2:
+			pinopts = CONTROL_BCM_CONF_SPI2_MISO | CONTROL_BCM_CONF_SPI2_CE2 |
+				CONTROL_BCM_CONF_SPI2_CE1 | CONTROL_BCM_CONF_SPI2_CE0 |
+				CONTROL_BCM_CONF_SPI2_MOSI | CONTROL_BCM_CONF_SPI2_SCLK;
+	
+			r = sys_padconf(GPFSEL4049, pinopts,
+				pinopts);
+			if (r != OK) {
+				log_warn(&log, "sys_padconfnf failed (r=%d)\n", r);
+			}
+
+			log_debug(&log, "pinopts=0x%x\n", pinopts);
+
+			break;
+	}
 }
 
 static int spi_open(devminor_t UNUSED(minor), int UNUSED(access),
@@ -214,6 +275,7 @@ static int spi_transfer(uint32_t size, int mode)
 	log_debug(&log, "size %d\n", size);
 
 	if (mode == WRITE_MODE) {
+		spi_set32(rpi_spi_bus->CS, SPI_CS_REN, 0);
 		retv = spi_write_bytes(size);
 	} else {
 		spi_set32(rpi_spi_bus->CS, SPI_CS_REN, SPI_CS_REN);
@@ -274,6 +336,60 @@ static ssize_t spi_write(devminor_t UNUSED(minor), u64_t position,
 	return retv;
 }
 
+static int spi_set_mode(unsigned int mode)
+{
+	switch(mode) {
+		case SPI_CS_MODE0:
+		case SPI_CS_MODE1:
+		case SPI_CS_MODE2:
+		case SPI_CS_MODE3:
+			spi_set32(rpi_spi_bus->CS, SPI_CS_MODE, mode);
+			break;
+		default:
+			return EIO;
+	}
+	return OK;
+}
+
+static int spi_set_speed(unsigned int speed)
+{
+	if (speed > SPI_DEF_SPEED || speed < 0)
+		return EIO;
+
+	unsigned int div = div_roundup(SPI_DEF_SPEED, speed);
+
+	roundup2pow(div);
+	log_debug(&log, "div %d\n", div);
+	
+	spi_write32(rpi_spi_bus->CLK, div);
+
+	return OK;
+}
+
+static int spi_ioctl(devminor_t UNUSED(minor), unsigned long request, endpoint_t endpt,
+	cp_grant_id_t grant, int UNUSED(flags), endpoint_t UNUSED(user_endpt),
+	cdev_id_t UNUSED(id))
+{
+	if (request & IOC_IN) { /* if there is data for us, copy it */
+		
+		if (sys_safecopyfrom(endpt, grant, 0, (vir_bytes)io_ctl_buf,
+		    4) != OK) {
+			printf("%s:%d: safecopyfrom failed\n", __FILE__, __LINE__);
+		}
+	}
+
+	int status;
+	
+	switch(request) {
+		case SPIIORATE:		status = spi_set_speed(*(u32_t *)io_ctl_buf); break;
+		case SPIIOMODE:		status = spi_set_mode(*(u32_t *)io_ctl_buf); break;
+		default:            status = ENOTTY; break;
+	}
+
+	return status;
+
+}
+
 static void sef_local_startup()
 {
 	/*
@@ -291,11 +407,8 @@ static int sef_cb_init(int type, sef_init_info_t *UNUSED(info))
 {
 	spi_reset();
 
-	/* 3.9 MHz */
-	spi_write32(rpi_spi_bus->CLK, SPI_SPEED_3DOT9);
-
 	/* Enable interrupts */
-	spi_set32(rpi_spi_bus->CS, SPI_CS_INTR | SPI_CS_INTD | SPI_CS_DMAEN | SPI_CS_TA,
+	spi_set32(rpi_spi_bus->CS, SPI_CS_INTR | SPI_CS_INTD | SPI_CS_TA,
 		SPI_CS_INTR | SPI_CS_INTD | SPI_CS_TA);
 
 	chardriver_announce();
@@ -304,9 +417,37 @@ static int sef_cb_init(int type, sef_init_info_t *UNUSED(info))
 	return OK;
 }
 
-int main(void)
+static int
+env_parse_instance(void)
+{
+	int r;
+	long instance;
+
+	/* Parse the instance number passed to service */
+	instance = 0;
+	r = env_parse("instance", "d", 0, &instance, 1, 3);
+	if (r == -1) {
+		log_warn(&log,
+		    "Expecting '-arg instance=N' argument (N=1..3)\n");
+		return EXIT_FAILURE;
+	}
+
+	/* Device files count from 1, hardware starts counting from 0 */
+	spi_bus_id = instance - 1;
+
+	return OK;
+}
+
+int main(int argc, char *argv[])
 {
 	struct minix_mem_range mr;
+	int r;
+	env_setargs(argc, argv);
+
+	r = env_parse_instance();
+	if (r != OK) {
+		return r;
+	}
 
 	/* Configure memory access */
 	mr.mr_base = SPI_BASE;	/* start addr */

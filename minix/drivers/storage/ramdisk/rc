@@ -54,6 +54,8 @@ fi
 if [ X`/bin/sysenv arch` = Xearm ]
 then	echo Starting the mmc driver
 	/bin/service -c up /service/mmc -dev /dev/c0d0
+	/bin/service up /service/spi -dev /dev/spi-1 -label spi.1 -args instance=1
+	/bin/service up /service/i2c -dev /dev/i2c-2 -label i2c.2 -args instance=2
 fi
 
 /bin/service up /service/procfs || echo "WARNING: couldn't start procfs"
