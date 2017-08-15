@@ -104,6 +104,8 @@ PROGRAMS+=		mailbox
 dir.mailbox:=	minix/drivers/system/mailbox
 PROGRAMS+= 		spi
 dir.spi:=		minix/drivers/bus/spi
+PROGRAMS+=		pcm
+dir.pcm:=		minix/drivers/audio/pcm
 .endif # ${MACHINE_ARCH} == "earm"
 
 .if ${LDSTATIC} == "-dynamic"

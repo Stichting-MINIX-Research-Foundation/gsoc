@@ -34,6 +34,7 @@ d--755 0 0
 		i2c ---755 0 0 i2c
 		mailbox ---755 0 0 mailbox
 		spi ---755 0 0 spi
+		pcm ---755 0 0 pcm
 #endif
 		mfs ---755 0 0 mfs
 		procfs ---755 0 0 procfs

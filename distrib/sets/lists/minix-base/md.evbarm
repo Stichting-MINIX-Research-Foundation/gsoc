@@ -26,6 +26,7 @@
 ./service/mmc                                           minix-base
 ./service/i2c_omap                                      minix-base
 ./service/i2c_rpi                                       minix-base
+./service/pcm                                           minix-base
 ./service/random                                        minix-base
 ./service/sht21                                         minix-base
 ./service/spi                                           minix-base

@@ -41,12 +41,16 @@
 #define DMA_STRIDE		0x18
 #define DMA_NEXTCONBK	0x1c
 
+#define DMA_CS_ACTIVE	0x1
 #define DMA_CS_END		0x2
-#define DMA_TI_SRC_DREQ 0x400
-#define DMA_TI_INTEN	0x1
 
-#define DREQ_RX		2
-#define DREQ_TX		3
+#define DMA_TI_INTEN	0x1
+#define DMA_TI_TDMODE	0x200
+#define DMA_TI_SRC_INC	0x100
+#define DMA_TI_SRC_DREQ 0x400
+
+#define DREQ_TX		2
+#define DREQ_RX		3
 #define PERMAP_SET(v) ((v) << 16)
 
 #define PCM_CS_A_EN			0x1
@@ -54,8 +58,8 @@
 #define PCM_CS_A_TXON		0x4
 #define PCM_CS_A_TXCLR		0x8
 #define PCM_CS_A_RXCLR		0x10
-#define PCM_CS_A_TXCHR		0x60
-#define PCM_CS_A_RXCHR		0x180
+#define PCM_CS_A_TXTHR		0x60
+#define PCM_CS_A_RXTHR		0x180
 #define PCM_CS_A_DMAEN		0x200
 #define PCM_CS_A_TXSYNC		0x2000
 #define PCM_CS_A_RXSYNC		0x4000
@@ -117,12 +121,22 @@
 #define CLK_PCMDIV		0x04
 
 /* Clock register settings */
+#define PCM_CLK_FREQ		19200000
+
 #define PCM_CLK_PASSWD		(0x5a000000)
 #define PCM_CLK_PASSWD_MASK	(0xff000000)
 #define PCM_CLK_FLIP		0x100
 #define PCM_CLK_BUSY		0x80
 #define PCM_CLK_KILL		0x20
 #define PCM_CLK_ENAB		0x10
+
+#define CLK_SRC(v) (v)
+#define CLK_MASH(v) ((v) << 9)
+
+#define CLK_SHIFT		(12)
+#define CLK_DIVI(v)		((v) << CLK_SHIFT)
+#define CLK_DIVF(v)		(v)
+#define CLK_DIVF_MASK	(0xFFF)
 
 #define DSP_MAX_SPEED			44100      /* Max sample speed in KHz */
 #define DSP_MIN_SPEED			4000       /* Min sample speed in KHz */

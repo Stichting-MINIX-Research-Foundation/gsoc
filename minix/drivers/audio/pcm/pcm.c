@@ -13,7 +13,7 @@
 
 #include <minix/log.h>
 
-static void dsp_dma_setup(phys_bytes address, int count, int sub_dev);
+static void dsp_dma_setup(int sub_dev);
 
 static int dsp_ioctl(unsigned long request, void *val, int *len);
 static int dsp_set_size(unsigned int size);
@@ -44,6 +44,8 @@ static struct log log = {
 	.log_func = default_log
 };
 
+#define	div_roundup(x, y) (((x)+((y)-1))/(y))
+
 typedef struct
 {
 	uint32_t TI;
@@ -56,14 +58,14 @@ typedef struct
 	uint32_t unused2;
 } ctrl_blk_t;
 
-ctrl_blk_t ctrl_blk __attribute__((aligned(32)));
-
-sub_dev_t sub_dev[2];
-special_file_t special_file[3];
+sub_dev_t sub_dev[1];
+special_file_t special_file[2];
 drv_t drv;
 uint32_t io_base;
 uint32_t clk_base;
 uint32_t dma_base;
+static ctrl_blk_t *ctrl_blk;
+static phys_bytes ph;
 
 int drv_init(void)
 {
@@ -74,7 +76,7 @@ int drv_init(void)
 	sub_dev[AUDIO].readable = 1;
 	sub_dev[AUDIO].writable = 1;
 	sub_dev[AUDIO].DmaSize = 16 * 1024;
-	sub_dev[AUDIO].NrOfDmaFragments = 2;
+	sub_dev[AUDIO].NrOfDmaFragments = 1;
 	sub_dev[AUDIO].MinFragmentSize = 1024;
 	sub_dev[AUDIO].NrOfExtraBuffers = 4;
 	
@@ -96,6 +98,7 @@ static void config_clk()
 	log_debug(&log, "config clk starts\n");
 
 	struct minix_mem_range mr;
+	char *base;
 
 	mr.mr_base = CLK_BASE;
 	mr.mr_limit = CLK_BASE + CLK_REG_SIZE;
@@ -135,6 +138,18 @@ static void config_dma()
 
 	if (dma_base == (uint32_t) MAP_FAILED)
 		panic("Unable to map dma memory");
+
+	ctrl_blk = (ctrl_blk_t *) alloc_contig(sizeof(ctrl_blk_t), AC_ALIGN4K, &ph);
+	if ((u8_t *)ctrl_blk == (u8_t *) MAP_FAILED) {
+		panic("Unable to allocate contiguous memory for mailbox buffer\n");
+	}
+
+	int i = sys_umap(SELF, VM_D, (vir_bytes) ctrl_blk, (phys_bytes) sizeof(ctrl_blk_t),
+			&(ph));
+
+	if (i != OK) {
+		panic("Unable to map phys control block\n");
+	}
 }
 
 static void
@@ -152,6 +167,60 @@ pcm_padconf()
 	}
 	
 	log_debug(&log, "pinopts=0x%x\n", pinopts);
+}
+
+static void clear_fifo()
+{
+	int timeout = 1000;
+	uint32_t clkreg;
+
+	/* Stop I2S module */
+	pcm_set(PCM_CS_A, PCM_CS_A_TXON, 0);
+
+	pcm_set(PCM_CS_A, PCM_CS_A_TXCLR, PCM_CS_A_TXCLR);
+
+	while (--timeout) {
+		clkreg = read32(clk_base + CLK_PCMCTL);
+		if (!(clkreg & PCM_CLK_BUSY))
+			break;
+	}
+
+	if (!timeout) {
+		/* KILL the clock */
+		log_warn(&log, "PCM clock didn't stop. Kill the clock!\n");
+		set32(clk_base + CLK_PCMCTL,
+			PCM_CLK_KILL | PCM_CLK_PASSWD_MASK,
+			PCM_CLK_KILL | PCM_CLK_PASSWD);
+	}
+	pcm_set(PCM_CS_A, PCM_CS_A_TXON, PCM_CS_A_TXON);
+
+}
+
+static void set_speed()
+{
+	uint32_t divider;
+	uint32_t bclk_rate;
+	uint32_t cur_freq = PCM_CLK_FREQ << CLK_SHIFT;
+
+	switch(DspBits)
+	{
+		case 8:
+		case 16:
+			bclk_rate = 40;
+			break;
+		default:
+			return;
+	}
+
+	divider = div_roundup(cur_freq, DspSpeed * bclk_rate);
+
+	write32(clk_base + CLK_PCMDIV, PCM_CLK_PASSWD
+			| CLK_DIVI(divider >> CLK_SHIFT)
+			| CLK_DIVF(divider & CLK_DIVF_MASK));
+
+	write32(clk_base + CLK_PCMCTL, PCM_CLK_PASSWD
+			| CLK_MASH(1)
+			| CLK_SRC(6));
 }
 
 int drv_init_hw(void) 
@@ -187,24 +256,31 @@ int drv_init_hw(void)
 
 	pcm_padconf();
 
-	pcm_write(PCM_TXC_A, PCM_TXC_A_CH1WID16 | PCM_TXC_A_CH2WID16 |
-		PCM_TXC_A_CH1EN | PCM_TXC_A_CH2EN);
+	if (DspBits == 16)
+		pcm_write(PCM_TXC_A, PCM_TXC_A_CH1WID16 | PCM_TXC_A_CH2WID16 |
+			PCM_TXC_A_CH1EN | PCM_TXC_A_CH2EN);
+	else
+		pcm_write(PCM_TXC_A, PCM_TXC_A_CH1WID8 | PCM_TXC_A_CH2WID8 |
+			PCM_TXC_A_CH1EN | PCM_TXC_A_CH2EN);
+
 	/* Set frame start position */
-	pcm_set(PCM_TXC_A, (1 << 20) | (33 << 4), (1 << 20) | (33 << 4));
+	pcm_set(PCM_TXC_A, (1 << 20) | (33 << 4), 0xffffffff);
 	pcm_set(PCM_MODE_A, PCM_MODE_A_FTXP | (63 << 10) | 32, 
-		PCM_MODE_A_FTXP | (63 << 10) | 32);
+		0xffffffff);
 
 	pcm_set(PCM_CS_A, PCM_CS_A_STBY, PCM_CS_A_STBY);
 	for(i = 0; i < 1000; i++); /* wait a while */
 
 	pcm_set(PCM_CS_A, PCM_CS_A_TXCLR, PCM_CS_A_TXCLR);
 
-	pcm_set(PCM_CS_A, PCM_CS_A_TXCHR, 1);
+	pcm_set(PCM_CS_A, PCM_CS_A_TXTHR, 0);
 
 	for (i = 0; i < 32; i++)
 		pcm_write(PCM_FIFO_A, 0);
 
 	pcm_set(PCM_CS_A, PCM_CS_A_SYNC, 0);
+
+	set_speed();
 
 	pcm_write(PCM_INTSTC_A, PCM_INTSTC_A_TXW |
 		PCM_INTSTC_A_RXR | PCM_INTSTC_A_TXERR | PCM_INTSTC_A_RXERR);
@@ -214,6 +290,8 @@ int drv_init_hw(void)
 	pcm_set(PCM_CS_A, PCM_CS_A_TXON, PCM_CS_A_TXON);
 
 	DspFragmentSize = sub_dev[AUDIO].DmaSize / sub_dev[AUDIO].NrOfDmaFragments;
+
+	clear_fifo();
 
 	return OK;
 }
@@ -243,10 +321,13 @@ int drv_start(int channel, int DmaMode)
 
 	drv_reset();
 
-	ctrl_blk.SRC_AD = DmaPhys;
-	ctrl_blk.TXR_LEN = DspFragmentSize * sub_dev[channel].NrOfDmaFragments;
-	ctrl_blk.TI = PERMAP_SET(DREQ_TX) | DMA_TI_SRC_DREQ | DMA_TI_INTEN;
-	dsp_dma_setup(DmaMode);
+	ctrl_blk->SRC_AD = DmaPhys;
+	ctrl_blk->DST_AD = I2S_BASE + PCM_FIFO_A;
+	ctrl_blk->TXR_LEN = DspFragmentSize * sub_dev[channel].NrOfDmaFragments;
+	ctrl_blk->TI = PERMAP_SET(DREQ_TX) | DMA_TI_SRC_DREQ 
+		| DMA_TI_INTEN | DMA_TI_SRC_INC;
+	ctrl_blk->NEXTCONBK = (uint32_t)ph;
+	log_debug(&log, "0x%x 0x%x\n", ph, DmaPhys);
 
 	dsp_set_speed(DspSpeed);
 
@@ -259,17 +340,22 @@ int drv_start(int channel, int DmaMode)
 
 	running = TRUE;
 
+	clear_fifo();
+
+	dsp_dma_setup(DmaMode);
+
 	return OK;
 }
+
 
 static void clock_start()
 {
 	set32(clk_base + CLK_PCMCTL, 
-		BCM2708_CLK_PASSWD_MASK | BCM2708_CLK_ENAB,
-		BCM2708_CLK_PASSWD | BCM2708_CLK_ENAB);
+		PCM_CLK_PASSWD_MASK | PCM_CLK_ENAB,
+		PCM_CLK_PASSWD | PCM_CLK_ENAB);
 }
 
-static int clock_stop()
+static void clock_stop()
 {
 	int timeout = 1000;
 	uint32_t clkreg;
@@ -279,7 +365,7 @@ static int clock_stop()
 		PCM_CLK_PASSWD);
 
 	while (--timeout) {
-		read32(clk_base + CLK_PCMCTL, &clkreg);
+		clkreg = read32(clk_base + CLK_PCMCTL);
 		if (!(clkreg & PCM_CLK_BUSY))
 			break;
 	}
@@ -328,7 +414,7 @@ int drv_pause(int chan)
 
 int drv_resume(int UNUSED(chan))
 {
-	start_clock();
+	clock_start();
 	pcm_set(PCM_CS_A, PCM_CS_A_TXON, PCM_CS_A_TXON);
 	return OK;
 }
@@ -386,17 +472,16 @@ static void dsp_dma_setup(int DmaMode)
 
 	log_debug(&log, "Setting up %d bit DMA\n", DspBits);
 	if(DspBits == 16 || DspBits == 8) {   /* 16 bit sound */
-		count -= 2;
 		pcm_set(PCM_CS_A, PCM_CS_A_DMAEN, 0); /* put speaker on */
 
 		write32(dma_base + DMA_CS, DMA_CS_END);
 
-		write32(dma_base + DMA_CONBLK, &ctrl_blk);
+		write32(dma_base + DMA_CONBLK, (uint32_t)ph);
 
-		pcm_write(PCM_DREQ_A, PCM_TX_PANIC(0x10) |
+		pcm_set(PCM_DREQ_A, PCM_TX_PANIC(0x10) |
 			PCM_RX_PANIC(0x30) | PCM_TX(0x30) | PCM_RX(0x20), 0xffffffff);
 
-		pcm_set(PCM_CS_A, PCM_CS_A_DMAEN, PCM_CS_A_DMAEN); /* put speaker on */
+		pcm_set(PCM_CS_A, PCM_CS_A_DMAEN, PCM_CS_A_DMAEN);
 
 		set32(dma_base + DMA_CS, DMA_CS_ACTIVE, DMA_CS_ACTIVE);
 	}
