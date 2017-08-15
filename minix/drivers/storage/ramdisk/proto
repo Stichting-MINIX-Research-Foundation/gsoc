@@ -12,6 +12,8 @@ d--755 0 0
 		mount ---755 0 0 mount
 		umount ---755 0 0 umount
 		grep ---755 0 0 grep
+		dd ---755 0 0 dd
+		i2cscan ---755 0 0 i2cscan
 		sh ---755 0 0 sh
 		service ---755 0 0 service
 	$
@@ -29,7 +31,9 @@ d--755 0 0
 #endif
 #ifdef __arm__
 		mmc ---755 0 0 mmc
+		i2c ---755 0 0 i2c
 		mailbox ---755 0 0 mailbox
+		spi ---755 0 0 spi
 #endif
 		mfs ---755 0 0 mfs
 		procfs ---755 0 0 procfs

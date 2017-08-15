@@ -72,6 +72,7 @@ struct ttysize {
 #include <sys/ioc_block.h>	/* 'b'			*/
 #include <sys/ioc_fbd.h>	/* 'B'			*/
 #include <sys/ioc_fb.h>		/* 'V'			*/
+#include <sys/ioc_bus.h>	/* 'U'			*/
 #include <dev/vndvar.h>		/* 'F'			*/
 #include <dev/i2c/i2c_io.h>
 #endif /* defined(__minix) */

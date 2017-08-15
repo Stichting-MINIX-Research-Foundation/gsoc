@@ -14,6 +14,7 @@ EXIT=0
 # console => lp tty log
 # boot    => kmem mem null ram zero
 RAMDISK_DEVICES="
+	audio
 	boot
 	console
 	input

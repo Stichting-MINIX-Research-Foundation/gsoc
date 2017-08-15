@@ -1591,6 +1591,7 @@
 ./usr/include/sys/intrio.h                              minix-comp
 ./usr/include/sys/inttypes.h                            minix-comp
 ./usr/include/sys/ioc_block.h                           minix-comp
+./usr/include/sys/ioc_bus.h                             minix-comp
 ./usr/include/sys/ioc_disk.h                            minix-comp
 ./usr/include/sys/ioc_fb.h                              minix-comp
 ./usr/include/sys/ioc_fbd.h                             minix-comp

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh/bin/service up /service/i2c -dev /dev/i2c-2 -label i2c.2 -args instance=2
 set -e
 
 exec >/dev/log
