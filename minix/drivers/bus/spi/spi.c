@@ -448,9 +448,21 @@ int main(int argc, char *argv[])
 	if (r != OK) {
 		return r;
 	}
+	uint32_t bus_base;
+	switch(spi_bus_id) {
+		case 0:
+			bus_base = SPI0_BASE;	/* start addr */
+			break;
+		case 1:
+			bus_base = SPI1_BASE;	/* start addr */
+			break;
+		case 2:
+			bus_base = SPI2_BASE;	/* start addr */
+			break;
+	}
 
 	/* Configure memory access */
-	mr.mr_base = SPI_BASE;	/* start addr */
+	mr.mr_base = bus_base;
 	mr.mr_limit = mr.mr_base + SPI_REG_SIZE;	/* end addr */
 
 	/* ask for privileges to access the SPI memory range */
@@ -460,7 +472,7 @@ int main(int argc, char *argv[])
 
 	/* map the memory into this process */
 	io_base = (vir_bytes) vm_map_phys(SELF,
-	    (void *) SPI_BASE, SPI_REG_SIZE);
+	    (void *) bus_base, SPI_REG_SIZE);
 
 	if (io_base == (vir_bytes) MAP_FAILED) {
 		panic("Unable to map spi registers");

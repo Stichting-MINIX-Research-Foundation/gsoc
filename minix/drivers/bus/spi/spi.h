@@ -1,8 +1,10 @@
 #ifndef _SPI_H_
 #define _SPI_H_
 
-#define SPI_BASE		0x3f204000
-#define SPI_REG_SIZE	0x100
+#define SPI0_BASE		0x3f204000
+#define SPI1_BASE		0x3f215080
+#define SPI2_BASE		0x3f2150C0
+#define SPI_REG_SIZE	0x18
 
 #define SPI_IRQ			48
 #define SPI_DEF_SPEED	250000000
