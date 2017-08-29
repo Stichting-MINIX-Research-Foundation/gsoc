@@ -40,7 +40,7 @@ static int running = FALSE;
  */
 static struct log log = {
 	.name = "pcm",
-	.log_level = LEVEL_DEBUG,
+	.log_level = LEVEL_INFO,
 	.log_func = default_log
 };
 
@@ -64,8 +64,9 @@ drv_t drv;
 uint32_t io_base;
 uint32_t clk_base;
 uint32_t dma_base;
-static ctrl_blk_t *ctrl_blk;
+static phys_bytes ctrl_blk;
 static phys_bytes ph;
+char *blk;
 
 int drv_init(void)
 {
@@ -139,13 +140,13 @@ static void config_dma()
 	if (dma_base == (uint32_t) MAP_FAILED)
 		panic("Unable to map dma memory");
 
-	ctrl_blk = (ctrl_blk_t *) alloc_contig(sizeof(ctrl_blk_t), AC_ALIGN4K, &ph);
-	if ((u8_t *)ctrl_blk == (u8_t *) MAP_FAILED) {
-		panic("Unable to allocate contiguous memory for mailbox buffer\n");
+	blk = alloc_contig(sizeof(ctrl_blk_t), AC_ALIGN4K, &ph);
+	if ((u8_t *)blk == (u8_t *) MAP_FAILED) {
+		panic("Unable to allocate contiguous memory for control block\n");
 	}
 
-	int i = sys_umap(SELF, VM_D, (vir_bytes) ctrl_blk, (phys_bytes) sizeof(ctrl_blk_t),
-			&(ph));
+	int i = sys_umap(SELF, VM_D, (vir_bytes) blk, (phys_bytes) sizeof(ctrl_blk_t),
+			&(ctrl_blk));
 
 	if (i != OK) {
 		panic("Unable to map phys control block\n");
@@ -158,9 +159,21 @@ pcm_padconf()
 	log_debug(&log, "padconf starts\n");
 
 	int r;
-	uint32_t pinopts = CONTROL_BCM_CONF_PCM_CLK;
+	uint32_t pinopts = CONTROL_BCM_CONF_PCM_CLK
+		| CONTROL_BCM_CONF_PCM_FS;
 
 	r = sys_padconf(GPFSEL1019, pinopts,
+	    pinopts);
+	if (r != OK) {
+		log_warn(&log, "padconf failed (r=%d)\n", r);
+	}
+	
+	log_debug(&log, "pinopts=0x%x\n", pinopts);
+
+	pinopts = CONTROL_BCM_CONF_PCM_DIN
+		| CONTROL_BCM_CONF_PCM_DOUT;
+
+	r = sys_padconf(GPFSEL2029, pinopts,
 	    pinopts);
 	if (r != OK) {
 		log_warn(&log, "padconf failed (r=%d)\n", r);
@@ -265,18 +278,16 @@ int drv_init_hw(void)
 
 	/* Set frame start position */
 	pcm_set(PCM_TXC_A, (1 << 20) | (33 << 4), 0xffffffff);
-	pcm_set(PCM_MODE_A, PCM_MODE_A_FTXP | (63 << 10) | 32, 
-		0xffffffff);
+	pcm_write(PCM_MODE_A, PCM_MODE_A_FTXP | (63 << 10) | 32);
 
-	pcm_set(PCM_CS_A, PCM_CS_A_STBY, PCM_CS_A_STBY);
+	pcm_set(PCM_CS_A, PCM_CS_A_STBY, 0);
 	for(i = 0; i < 1000; i++); /* wait a while */
 
 	pcm_set(PCM_CS_A, PCM_CS_A_TXCLR, PCM_CS_A_TXCLR);
+	pcm_set(PCM_CS_A, PCM_CS_A_RXCLR, PCM_CS_A_RXCLR);
 
 	pcm_set(PCM_CS_A, PCM_CS_A_TXTHR, 0);
-
-	for (i = 0; i < 32; i++)
-		pcm_write(PCM_FIFO_A, 0);
+	pcm_set(PCM_CS_A, PCM_CS_A_RXTHR, 0);
 
 	pcm_set(PCM_CS_A, PCM_CS_A_SYNC, 0);
 
@@ -287,7 +298,6 @@ int drv_init_hw(void)
 	pcm_write(PCM_INTEN_A, PCM_INTEN_A_TXW | PCM_INTEN_A_TXERR);
 
 	pcm_set(PCM_CS_A, PCM_CS_A_EN, PCM_CS_A_EN);
-	pcm_set(PCM_CS_A, PCM_CS_A_TXON, PCM_CS_A_TXON);
 
 	DspFragmentSize = sub_dev[AUDIO].DmaSize / sub_dev[AUDIO].NrOfDmaFragments;
 
@@ -319,29 +329,27 @@ int drv_start(int channel, int DmaMode)
 
 	log_debug(&log, "drv_start starts\n");
 
-	drv_reset();
+	ctrl_blk_t ctrl;
+	ctrl.SRC_AD = DmaPhys;
+	ctrl.DST_AD = I2S_BASE + PCM_FIFO_A;
+	ctrl.TXR_LEN = DspFragmentSize * sub_dev[channel].NrOfDmaFragments;
+	ctrl.TI = PERMAP_SET(DREQ_TX) | DMA_TI_DST_DREQ 
+		| DMA_TI_INTEN | DMA_TI_WAIT_RESP | DMA_TI_SRC_INC;
+	ctrl.NEXTCONBK = ctrl_blk;
 
-	ctrl_blk->SRC_AD = DmaPhys;
-	ctrl_blk->DST_AD = I2S_BASE + PCM_FIFO_A;
-	ctrl_blk->TXR_LEN = DspFragmentSize * sub_dev[channel].NrOfDmaFragments;
-	ctrl_blk->TI = PERMAP_SET(DREQ_TX) | DMA_TI_SRC_DREQ 
-		| DMA_TI_INTEN | DMA_TI_SRC_INC;
-	ctrl_blk->NEXTCONBK = (uint32_t)ph;
-	log_debug(&log, "0x%x 0x%x\n", ph, DmaPhys);
+	memcpy(blk, &ctrl, sizeof(ctrl_blk_t));
 
 	dsp_set_speed(DspSpeed);
-
-	clock_stop();
 
 	if (!DspStereo)
 		pcm_set(PCM_TXC_A, PCM_TXC_A_CH2EN, 0);
 
-	pcm_set(PCM_CS_A, PCM_CS_A_STBY, PCM_CS_A_STBY);
-
-	running = TRUE;
-
 	clear_fifo();
 
+	pcm_set(PCM_CS_A, PCM_CS_A_TXON, PCM_CS_A_TXON);
+
+	running = TRUE;
+	
 	dsp_dma_setup(DmaMode);
 
 	return OK;
@@ -472,12 +480,10 @@ static void dsp_dma_setup(int DmaMode)
 
 	log_debug(&log, "Setting up %d bit DMA\n", DspBits);
 	if(DspBits == 16 || DspBits == 8) {   /* 16 bit sound */
-		pcm_set(PCM_CS_A, PCM_CS_A_DMAEN, 0); /* put speaker on */
-
-		write32(dma_base + DMA_CS, DMA_CS_END);
-
-		write32(dma_base + DMA_CONBLK, (uint32_t)ph);
-
+		pcm_set(PCM_CS_A, PCM_CS_A_DMAEN, 0); 
+		write32(dma_base + DMA_CS, DMA_CS_RESET);
+		set32(dma_base + DMA_CS, DMA_CS_END | DMA_CS_INT, 0xffffffff);
+		write32(dma_base + DMA_CONBLK, (uint32_t)ctrl_blk);
 		pcm_set(PCM_DREQ_A, PCM_TX_PANIC(0x10) |
 			PCM_RX_PANIC(0x30) | PCM_TX(0x30) | PCM_RX(0x20), 0xffffffff);
 
@@ -492,7 +498,9 @@ static int dsp_set_size(unsigned int size)
 	log_debug(&log, "set fragment size to %u\n", size);
 
 	/* Sanity checks */
-	if(size < sub_dev[AUDIO].MinFragmentSize || size > sub_dev[AUDIO].DmaSize / sub_dev[AUDIO].NrOfDmaFragments || size % 2 != 0) {
+	if(size < sub_dev[AUDIO].MinFragmentSize 
+		|| size > sub_dev[AUDIO].DmaSize / sub_dev[AUDIO].NrOfDmaFragments 
+		|| size % 2 != 0) {
 		return EINVAL;
 	}
 

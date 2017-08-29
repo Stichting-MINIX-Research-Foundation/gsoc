@@ -26,7 +26,7 @@
 #define I2S_BASE		0x3f203000
 #define I2S_REG_SIZE	0x200
 #define CLK_BASE		0x3f101000
-#define CLK_REG_SIZE	0x50
+#define CLK_REG_SIZE	0x8
 #define DMA_BASE		0x3f007000
 #define DMA_REG_SIZE	0x100
 
@@ -43,10 +43,15 @@
 
 #define DMA_CS_ACTIVE	0x1
 #define DMA_CS_END		0x2
+#define DMA_CS_INT		0x4
+#define DMA_CS_RESET	0x80000000
 
 #define DMA_TI_INTEN	0x1
-#define DMA_TI_TDMODE	0x200
+#define DMA_TI_WAIT_RESP	0x8
+#define DMA_TI_DST_INC	0x10
+#define DMA_TI_DST_DREQ 0x40
 #define DMA_TI_SRC_INC	0x100
+#define DMA_TI_TDMODE	0x200
 #define DMA_TI_SRC_DREQ 0x400
 
 #define DREQ_TX		2
