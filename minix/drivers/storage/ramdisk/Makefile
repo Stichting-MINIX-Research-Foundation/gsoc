@@ -106,6 +106,8 @@ PROGRAMS+= 		spi
 dir.spi:=		minix/drivers/bus/spi
 PROGRAMS+=		pcm
 dir.pcm:=		minix/drivers/audio/pcm
+PROGRAMS+=		pwmjack
+dir.pwmjack:=	minix/drivers/audio/pwmjack
 .endif # ${MACHINE_ARCH} == "earm"
 
 .if ${LDSTATIC} == "-dynamic"

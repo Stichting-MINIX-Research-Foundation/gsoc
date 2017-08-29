@@ -8,5 +8,6 @@ SUBDIR+=	sb16
 
 .if ${MACHINE_ARCH} == "earm"
 SUBDIR+=	pcm
+SUBDIR+=	pwmjack
 .endif # ${MACHINE_ARCH} == "earm"
 .include <bsd.subdir.mk>

@@ -33,6 +33,8 @@ d--755 0 0
 		mmc ---755 0 0 mmc
 		i2c ---755 0 0 i2c
 		mailbox ---755 0 0 mailbox
+		pcm ---755 0 0 pcm
+		pwmjack ---755 0 0 pwmjack
 		spi ---755 0 0 spi
 		pcm ---755 0 0 pcm
 #endif

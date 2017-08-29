@@ -25,6 +25,7 @@
 ./service/mailbox                                       minix-base
 ./service/mmc                                           minix-base
 ./service/pcm                                           minix-base
+./service/pwmjack                                       minix-base
 ./service/random                                        minix-base
 ./service/sht21                                         minix-base
 ./service/spi                                           minix-base

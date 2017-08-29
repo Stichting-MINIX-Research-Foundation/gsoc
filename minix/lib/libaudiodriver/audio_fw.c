@@ -748,7 +748,6 @@ static void data_to_user(sub_dev_t *sub_dev_ptr)
 
 static int init_buffers(sub_dev_t *sub_dev_ptr)
 {
-#if defined(__i386__)
 	char *base;
 	size_t size;
 	unsigned left;
@@ -765,7 +764,9 @@ static int init_buffers(sub_dev_t *sub_dev_ptr)
 	}
 	sub_dev_ptr->DmaBuf= base;
 
+#if defined(__i386__)
 	tell_dev((vir_bytes)base, size, 0, 0, 0);
+#endif /* defined(__i386__) */
 
 	/* allocate extra buffer space */
 	if (!(sub_dev_ptr->ExtraBuf = malloc(sub_dev_ptr->NrOfExtraBuffers * 
@@ -795,11 +796,6 @@ static int init_buffers(sub_dev_t *sub_dev_ptr)
 	drv_set_dma(sub_dev_ptr->DmaPhys, 
 			sub_dev_ptr->DmaSize, sub_dev_ptr->Nr);
 	return OK;
-
-#else /* !defined(__i386__) */
-	printf("%s: init_buffers() failed, CHIP != INTEL", drv.DriverName);
-	return EIO;
-#endif /* defined(__i386__) */
 }
 
 

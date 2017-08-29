@@ -126,6 +126,7 @@ dtparam=i2c_arm=on
 dtparam=i2c1=on
 dtparam=spi=on
 dtparam=i2s=on
+dtparam=audio=on
 EOF
 
 ${CROSS_TOOLS}/nbmakefs -t msdos -s $FAT_SIZE -O $FAT_START -o "F=32,c=1" ${IMG} ${ROOT_DIR} >/dev/null
