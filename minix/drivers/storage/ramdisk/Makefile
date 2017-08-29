@@ -26,7 +26,7 @@ RAMDISK_DEFINES= \
 PROTO=			proto
 
 # Common to all architectures
-ETC=			system.conf group completed.wav
+ETC=			system.conf group
 EXTRA=			rc
 PROTO_FILES=		proto.common.etc
 PROTO_FILES+=		proto.common.dynamic
