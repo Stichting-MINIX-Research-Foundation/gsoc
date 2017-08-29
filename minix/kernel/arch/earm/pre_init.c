@@ -417,6 +417,22 @@ void set_bsp_table()
 	bsp_tb = &platform_tb;
 }
 
+static int parse_device_tree (char *bootargs)
+{
+
+#define TRY_OR_RETURN(func) \
+	do { \
+		if (func) \
+			return -1; \
+	} while(0)
+
+	TRY_OR_RETURN(fdt_is_compatible (dev_tree));
+	TRY_OR_RETURN(fdt_step_node(dev_tree, fdt_set_machine_type, &machine));
+	TRY_OR_RETURN(fdt_step_node(dev_tree, fdt_set_bootargs, bootargs));
+
+	return 0;		
+}
+
 void read_tsc_64(u64_t * t) 
 {
 	bsp_tb->read_tsc_64(t);
@@ -434,7 +450,7 @@ int intr_init(const int auto_eoi)
 
 kinfo_t *pre_init(int argc, char **argv)
 {
-	char* bootargs;
+	char *bootargs;
 	asm volatile ("mov %0, r2":"=r"(dev_tree)::"r2", "memory");
 
 	/* This is the main "c" entry point into the kernel. It gets called
@@ -448,18 +464,16 @@ kinfo_t *pre_init(int argc, char **argv)
 		POORMANS_FAILURE_NOTIFICATION;
 	}
 
-	if (fdt_step_node(dev_tree, fdt_set_machine_type, &machine))
-		POORMANS_FAILURE_NOTIFICATION;
+	parse_device_tree(bootargs);
 	
-	bootargs = argv[1];
-	set_machine_id(bootargs);
+	set_machine_id(argv[1]);
 
 	set_bsp_table();
 
 	/* Get our own copy boot params pointed to by r1.
 	 * Here we find out whether we should do serial output.
 	 */
-	get_parameters(&kinfo, bootargs);
+	get_parameters(&kinfo, argv[1]);
 
 	return &kinfo;
 }

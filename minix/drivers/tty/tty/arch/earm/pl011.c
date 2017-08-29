@@ -280,6 +280,7 @@ static void rs_config(rs232_t *rs)
 	serial_out(rs, PL011_LCR_H, serial_in(rs, PL011_LCR_H) | PL011_LCR_FEN);
 	/* Set level of FIFO filling in */
 	serial_out(rs, PL011_IFLS, PL011_IFLS_TXIFLSEL12 | PL011_IFLS_RXIFLSEL12);
+
 	/* Set interrupt levels */
 	serial_out(rs, PL011_IFLS, 0x0);
 
