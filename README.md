@@ -10,6 +10,10 @@ Please add some information in this README when new branches are integrated.
 
 ## 2017
 
+### Porting MINIX3 to Raspberry PI [more](http://wiki.minix3.org/doku.php?id=soc:2017:portrpi)
+
+ * [2017-rpi](https://github.com/Stichting-MINIX-Research-Foundation/gsoc/tree/2017-rpi)
+
 ## 2012
 
 ### Porting LWIP to MINIX [more](http://wiki.minix3.org/doku.php?id=soc:2012:lwipintegration)
